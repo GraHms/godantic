@@ -5,7 +5,7 @@ Godantic is a Go package for validating JSON input data in HTTP requests. It pro
 To use Godantic, you first need to create a Godantic instance:
 
 ```Go
-g := &godantic.NewGodantic(".")
+g := &godantic.Validate{}
 ErrorPathSeparator: , // The separator used to join field names in error messages
 }
 ```
@@ -36,8 +36,8 @@ You can also use the ReflectStruct method to validate that the input data confor
 
 ```Go
 type User struct {
-Name string `json:"name" binding:"required"`
-Age  int    `json:"age"`
+Name *string `json:"name" binding:"required"`
+Age  *int    `json:"age"`
 }
 
 inputData := map[string]interface{}{

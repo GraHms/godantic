@@ -2,10 +2,10 @@
 package godantic
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 func getValueOf(val interface{}) reflect.Value {
@@ -22,73 +22,154 @@ func isStruct(value reflect.Value) bool {
 func isString(value reflect.Value) bool {
 	return value.Kind() == reflect.String
 }
-
-func Validate(val interface{}) error {
-	g := Godentic{}
-	return g.InspectStruct(val, "")
+func isTime(value reflect.Value) bool {
+	return value.Type().ConvertibleTo(TimeType)
+}
+func isList(value reflect.Value) bool {
+	return value.Kind() == reflect.Slice || value.Kind() == reflect.Array
 }
 
-func (g *Godentic) InspectStruct(val interface{}, tree string) error {
-	// Get the reflection of the value.
+var TimeType = reflect.TypeOf(time.Time{})
+
+func (g *Validate) InspectStruct(val interface{}) error {
+	return g.inspect(val, "")
+}
+
+func (g *Validate) inspect(val interface{}, tree string) error {
 	v := getValueOf(val)
+	switch {
+	case isPtr(v):
+		return g.inspect(v.Elem().Interface(), tree)
+	case isStruct(v):
+		return g.checkStruct(v, tree)
+	case isString(v):
+		return g.checkString(v, tree)
+	case isTime(v):
+		return g.checkTime(v, tree)
+	case isList(v):
+		return g.checkList(v, tree)
+	default:
+		return nil
 
-	// Get the type of the value.
-	t := v.Type()
-
-	if isPtr(v) {
-		return g.InspectStruct(v.Elem().Interface(), tree)
 	}
-	if isStruct(v) {
-		for i := 0; i < t.NumField(); i++ {
-			// Get the field at the current index.
-			err := g.checkField(v, t, tree, i)
-			if err != nil {
-				return err
-			}
+}
+
+func (g *Validate) checkTime(v reflect.Value, tree string) error {
+	timeValue := v.Interface().(time.Time)
+	if timeValue.IsZero() {
+		return &Error{
+			ErrType: "INVALID_TIME_ERR",
+			Path:    tree,
+			Message: "The field <" + tree + "> cannot have an invalid time value",
 		}
 	}
-	if isString(v) {
-		s := strings.TrimSpace(v.String())
-		if len(s) < 1 {
-			return &GodanticError{
-				ErrType: "emptyStrFieldErr",
-				Path:    tree,
-				Message: "The field <" + tree + "> cannot be an empty string",
-			}
-		}
-	}
-
 	return nil
 }
 
-func (g *Godentic) checkField(v reflect.Value, t reflect.Type, tree string, i int) error {
-	f := t.Field(i)
+func (g *Validate) checkString(v reflect.Value, tree string) error {
+	s := strings.TrimSpace(v.String())
+	if len(s) < 1 {
+		return &Error{
+			ErrType: "EMPTY_STRING_ERR",
+			Path:    tree,
+			Message: "The field <" + tree + "> cannot be an empty string",
+		}
+	}
+	return nil
+}
 
-	// Get the value of the field.
-	valField := v.Field(i)
+func (g *Validate) checkList(v reflect.Value, tree string) error {
+	min := 1
+	if g.IgnoreMinLen == true {
+		min = 0
+	}
+	isLesserThanMinLength := v.Len() < min
+	if isLesserThanMinLength {
 
-	// If the field is a struct or pointer to a struct and its value is not nil,
-	// call the function recursively on the field.
-	if (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr) && !valField.IsNil() {
-
-		err := g.InspectStruct(valField.Interface(), fieldName(f, tree))
+		return &Error{
+			ErrType: "EMPTY_LIST_ERR",
+			Path:    tree,
+			Message: fmt.Sprintf("Field <%s> must be with at least one value.", tree),
+		}
+	}
+	for i := 0; i < v.Len(); i++ {
+		err := g.inspect(v.Index(i).Interface(), tree)
 		if err != nil {
 			return err
 		}
 	}
 
-	// If the field is required and its value is nil, print an error message.
-	if isFieldRequired(f) && valField.IsNil() {
-		return RequiredFieldError(f, tree)
+	return nil
+}
 
+func (g *Validate) checkStruct(v reflect.Value, tree string) error {
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		err := g.checkField(v, t, tree, i)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-// fieldName takes a struct field and a tree string, and returns the name of
-// the field. If the field has a JSON tag, the name is the value of the tag.
-// Otherwise, the name is the field name. If the tree string is not empty,
-// the name is the tree string concatenated with the field name.
+func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i int) error {
+	f := t.Field(i)
+
+	enums := f.Tag.Get("enum")
+	valField := v.Field(i)
+	switch {
+	case (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr) && !valField.IsNil():
+		err := g.inspect(valField.Interface(), fieldName(f, tree))
+		if err != nil {
+			return err
+		}
+	case g.IgnoreRequired != true:
+		if isFieldRequired(f) && valField.IsNil() {
+			return RequiredFieldError(f, tree)
+
+		}
+	case isPtr(valField):
+
+		println("I am a string")
+	}
+	// Check for enum validation tags.
+	if len(enums) > 0 {
+		enumValues := strings.Split(strings.TrimSpace(enums), ",")
+		err := g.strEnums(f, valField, tree, enumValues)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (g *Validate) strEnums(f reflect.StructField, val reflect.Value, tree string, allowedValues []string) error {
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	fieldValue := val.String()
+
+	// Convert the allowedValues slice to a map for faster searching.
+	allowedMap := make(map[string]bool, len(allowedValues))
+	for _, allowedValue := range allowedValues {
+		allowedMap[allowedValue] = true
+	}
+
+	if _, ok := allowedMap[fieldValue]; !ok {
+		// If the value is not one of the allowed enums, return an error.
+		return &Error{
+			ErrType: "INVALID_ENUM_ERR",
+			Path:    fieldName(f, tree),
+			Message: fmt.Sprintf("The field <%s> must have one of the following values: %s, '%s' was given",
+				fieldName(f, tree), strings.Join(allowedValues, ", "), val.String()),
+		}
+	}
+
+	return nil
+}
+
 func fieldName(f reflect.StructField, tree string) string {
 	var name string
 	if f.Tag != "" {
@@ -108,23 +189,10 @@ func isFieldRequired(f reflect.StructField) bool {
 	return false
 }
 
-// RequiredFieldError returns an error indicating that a required field is missing.
 func RequiredFieldError(field reflect.StructField, tree string) error {
-	return &GodanticError{
-		ErrType: "requiredFieldErr",
+	return &Error{
+		ErrType: "REQUIRED_FIELD_ERR",
 		Path:    fieldName(field, tree),
 		Message: fmt.Sprintf("The field <%s> is required", fieldName(field, tree)),
 	}
-}
-
-func (e *GodanticError) Error() string {
-	e.err = errors.New(e.Message)
-	return e.err.Error()
-}
-
-type GodanticError struct {
-	ErrType string
-	Message string
-	Path    string
-	err     error
 }

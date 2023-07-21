@@ -1,15 +1,14 @@
 package godantic
 
 import (
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-// TestForbidExtraFields tests the ForbidExtraFields function.
+// TestForbidExtraFields tests the CheckTypeCompatibility function.
 func TestForbidExtraFields(t *testing.T) {
-	// Create a Godentic instance.
-	g := &Godentic{}
+	// Create a Validate instance.
+	g := &Validate{}
 
 	// Create a request data map.
 	requestData := map[string]interface{}{
@@ -26,24 +25,15 @@ func TestForbidExtraFields(t *testing.T) {
 		"age":       25,
 	}
 
-	// Convert the reference data map to JSON.
-	referenceDataJSON, _ := json.Marshal(referenceData)
-
-	// Create a map that represents the expected result of unmarshalling the
-	// reference data JSON.
-	referenceDataMap := map[string]interface{}{}
-	_ = json.Unmarshal(referenceDataJSON, &referenceDataMap)
-
-	// Call the ForbidExtraFields function and check that it returns an error
 	// with the expected message.
-	err := g.ForbidExtraFields(requestData, referenceDataMap, "")
+	err := g.CheckTypeCompatibility(requestData, referenceData)
 	assert.EqualError(t, err, "Invalid field <extraField>")
 }
 
-// TestForbidExtraFields tests the ForbidExtraFields function.
+// TestForbidExtraFields tests the CheckTypeCompatibility function.
 func TestForbidExtraFieldsSuccess(t *testing.T) {
-	// Create a Godentic instance.
-	g := &Godentic{}
+	// Create a Validate instance.
+	g := &Validate{}
 
 	// Create a request data map.
 	requestData := map[string]interface{}{
@@ -59,24 +49,14 @@ func TestForbidExtraFieldsSuccess(t *testing.T) {
 		"age":       25,
 	}
 
-	// Convert the reference data map to JSON.
-	referenceDataJSON, _ := json.Marshal(referenceData)
-
-	// Create a map that represents the expected result of unmarshalling the
-	// reference data JSON.
-	referenceDataMap := map[string]interface{}{}
-	_ = json.Unmarshal(referenceDataJSON, &referenceDataMap)
-
-	// Call the ForbidExtraFields function and check that it returns an error
-	// with the expected message.
-	err := g.ForbidExtraFields(requestData, referenceDataMap, "")
+	err := g.CheckTypeCompatibility(requestData, referenceData)
 	assert.Equal(t, err, nil)
 }
 
-// TestForbidExtraFields tests the ForbidExtraFields function.
+// TestForbidExtraFields tests the CheckTypeCompatibility function.
 func TestForbidExtraFieldsInObject(t *testing.T) {
-	// Create a Godentic instance.
-	g := &Godentic{}
+	// Create a Validate instance.
+	g := &Validate{}
 
 	// Create a request data map.
 	requestData := map[string]interface{}{
@@ -99,24 +79,16 @@ func TestForbidExtraFieldsInObject(t *testing.T) {
 		},
 	}
 
-	// Convert the reference data map to JSON.
-	referenceDataJSON, _ := json.Marshal(referenceData)
-
-	// Create a map that represents the expected result of unmarshalling the
-	// reference data JSON.
-	referenceDataMap := map[string]interface{}{}
-	_ = json.Unmarshal(referenceDataJSON, &referenceDataMap)
-
-	// Call the ForbidExtraFields function and check that it returns an error
+	// Call the CheckTypeCompatibility function and check that it returns an error
 	// with the expected message.
-	err := g.ForbidExtraFields(requestData, referenceDataMap, "")
+	err := g.CheckTypeCompatibility(requestData, referenceData)
 	assert.EqualError(t, err, "Invalid field <object.extraField>")
 }
 
-// TestForbidExtraFields tests the ForbidExtraFields function.
+// TestForbidExtraFields tests the CheckTypeCompatibility function.
 func TestForbidExtraFieldsInListObject(t *testing.T) {
-	// Create a Godentic instance.
-	g := &Godentic{}
+	// Create a Validate instance.
+	g := &Validate{}
 
 	// Create a request data map.
 	requestData := map[string]interface{}{
@@ -143,16 +115,8 @@ func TestForbidExtraFieldsInListObject(t *testing.T) {
 		},
 	}
 
-	// Convert the reference data map to JSON.
-	referenceDataJSON, _ := json.Marshal(referenceData)
-
-	// Create a map that represents the expected result of unmarshalling the
-	// reference data JSON.
-	referenceDataMap := map[string]interface{}{}
-	_ = json.Unmarshal(referenceDataJSON, &referenceDataMap)
-
-	// Call the ForbidExtraFields function and check that it returns an error
+	// Call the CheckTypeCompatibility function and check that it returns an error
 	// with the expected message.
-	err := g.ForbidExtraFields(requestData, referenceDataMap, "")
+	err := g.CheckTypeCompatibility(requestData, referenceData)
 	assert.EqualError(t, err, "Invalid field <object.extraField>")
 }
