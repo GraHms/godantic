@@ -36,8 +36,8 @@ You can also use the ReflectStruct method to validate that the input data confor
 
 ```Go
 type User struct {
-Name *string `json:"name" binding:"required"`
-Age  *int    `json:"age"`
+Name *string `json:"name" enum:"JOHN,GRAHMS"`
+Age  *int    `json:"age" binding:"required"`
 }
 
 inputData := map[string]interface{}{
