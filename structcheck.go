@@ -137,10 +137,12 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 	if len(enums) > 0 {
 		enumValues := strings.Split(strings.TrimSpace(enums), ",")
 		err := g.strEnums(f, valField, tree, enumValues)
+
 		if err != nil {
 			return err
 		}
 	}
+
 
 	return nil
 }

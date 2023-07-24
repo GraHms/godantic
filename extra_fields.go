@@ -6,8 +6,10 @@ import (
 )
 
 type Validate struct {
+
 	IgnoreRequired bool
 	IgnoreMinLen   bool
+
 }
 
 func (g *Validate) CheckTypeCompatibility(requestData map[string]interface{}, referenceData map[string]interface{}) error {
@@ -25,7 +27,6 @@ func (g *Validate) typeCheck(requestData map[string]interface{}, referenceData m
 		}
 		// Check if requestField is a valid field in referenceData
 		fieldType, _ := referenceData[requestField]
-
 		// Check if field is an object
 		err = g.validateObject(fieldType, requestField, requestData, requestField)
 		if err != nil {
@@ -34,8 +35,8 @@ func (g *Validate) typeCheck(requestData map[string]interface{}, referenceData m
 
 		fieldListType, isFieldList := fieldType.([]interface{})
 		bodyListValue, isBodyListOk := requestData[requestField].([]interface{})
+    
 		if isFieldList && isBodyListOk && len(fieldListType) > 0 {
-
 			listObjectType := fieldListType[0].(map[string]interface{})
 			for _, obj := range bodyListValue {
 				listData := obj.(map[string]interface{})
