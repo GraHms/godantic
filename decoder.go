@@ -3,6 +3,7 @@ package godantic
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -75,4 +76,16 @@ func (g *Validate) BindJSON(jsonData []byte, obj interface{}) error {
 	}
 
 	return nil
+}
+
+func (e *Error) Error() string {
+	e.err = errors.New(e.Message)
+	return e.err.Error()
+}
+
+type Error struct {
+	ErrType string
+	Message string
+	Path    string
+	err     error
 }

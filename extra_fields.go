@@ -6,6 +6,10 @@ import (
 )
 
 type Validate struct {
+
+	IgnoreRequired bool
+	IgnoreMinLen   bool
+
 }
 
 func (g *Validate) CheckTypeCompatibility(requestData map[string]interface{}, referenceData map[string]interface{}) error {
@@ -31,7 +35,8 @@ func (g *Validate) typeCheck(requestData map[string]interface{}, referenceData m
 
 		fieldListType, isFieldList := fieldType.([]interface{})
 		bodyListValue, isBodyListOk := requestData[requestField].([]interface{})
-		if isFieldList && isBodyListOk {
+    
+		if isFieldList && isBodyListOk && len(fieldListType) > 0 {
 			listObjectType := fieldListType[0].(map[string]interface{})
 			for _, obj := range bodyListValue {
 				listData := obj.(map[string]interface{})

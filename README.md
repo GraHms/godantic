@@ -1,132 +1,254 @@
-# godantic
+# Godantic
 
-godantic is a Go package that provides functionality for decoding JSON data and validating it against a given object structure. It aims to simplify the process of decoding and validating JSON input in Go applications.
+Godantic is a Go package for inspecting and validating JSON-like data against Go struct types and schemas. It provides functionalities for checking type compatibility, structure compatibility, and other validations such as empty string, invalid time, and minimum length list checks.
 
-## Installation
+## Getting Started
 
-To use godantic in your Go project, you need to have Go installed and set up on your machine. Then, you can use the go get command to install the package:
+Install the godantic package:
 
-```shell
+```sh
 go get github.com/grahms/godantic
 ```
-# Usage
+
+Then import it in your Go code:
+
+```go
+import "github.com/grahms/godantic"
+```
+
+## Simple Usage
+
+```go
+type Person struct {
+	Name *string `json:"name" binding:"required"`
+	Age  *int    `json:"age"`
+}
+
+var jsonData = []byte(`{"name": "John", "age": 30}`)
+var person Person
+
+validator := godantic.Validate{}
+
+err := validator.BindJSON(jsonData, &person)
+if err != nil {
+    fmt.Println(err)
+}
+```
+
+## Advanced Usage
+
+- Enum Validation
+
+```go
+type Person struct {
+	Name *string `json:"name" binding:"required"`
+	Role *string `json:"role" enum:"admin,user"`
+}
+
+// Here, the Role field must be either 'admin' or 'user'. If it's not, an error is returned.
+```
+
+- Handling Extra Fields
+
+```go
+var jsonData = []byte(`{"name": "John", "age": 30, "extra": "extra data"}`)
+var person Person
+
+validator := godantic.Validate{}
+
+err := validator.BindJSON(jsonData, &person)
+if err != nil {
+    fmt.Println(err) // This will print an error about the 'extra' field not being valid.
+}
+```
+
+- Custom Error Handling
+
+```go
+type CustomError struct {
+	ErrType string
+	Message string
+	Path    string
+	err     error
+}
+
+func (e *CustomError) Error() string {
+	e.err = errors.New(e.Message)
+	return e.err.Error()
+}
+
+// Now you can create your own error type and return it in your custom validation functions.
+```
+
+- Inspecting and Validating Structs
+
+```go
+validator := godantic.Validate{}
+err := validator.InspectStruct(&myStruct)
+if err != nil {
+    fmt.Println(err)
+}
+```
+
+## Nested Fields & Objects
+
+```go
+type Address struct {
+	City  *string `json:"city" binding:"required"`
+	State *string `json:"state" binding:"required"`
+}
+
+type Person struct {
+	Name    *string `json:"name" binding:"required"`
+	Age     *int    `json:"age"`
+	Address *Address `json:"address"`
+}
+
+var jsonData = []byte(`{
+	"name": "John",
+	"age": 30,
+	"address": {
+		"city": "New York",
+		"state": "NY"
+	}
+}`)
+
+var person Person
+
+validator := godantic.Validate{}
+
+err := validator.BindJSON(jsonData, &person)
+if err != nil {
+    fmt.Println(err)
+}
+```
+
+In this example, the `Person` struct has a nested `Address` struct. The `godantic` package will validate the fields of the nested struct as well.
+
+## Lists
+
+```go
+type Skill struct {
+	Name *string `json:"name" binding:"required"`
+	Level *int `json:"level"`
+}
+
+type Person struct {
+	Name  *string `json:"name" binding:"required"`
+	Age   *int    `json:"age"`
+	Skills []Skill `json:"skills"`
+}
+
+var jsonData = []byte(`{
+	"name": "John",
+	"age": 30,
+	"skills": [
+		{
+			"name": "Go",
+			"level": 5
+		},
+		{
+			"name": "Python",
+			"level": 4
+		}
+	]
+}`)
+
+var person Person
+
+validator := godantic.Validate{}
+
+err := validator.BindJSON(jsonData, &person)
+if err != nil {
+    fmt.Println(err)
+}
+```
+
+In this example, the `Person` struct has a `Skills` field that is a slice of `Skill` structs. The `godantic` package will iterate over the list and validate each object in the list.
+
+
+## Integration with Web Frameworks
+
+### Using Godantic with Gin
+
+Here's an example of how to use the `godantic` package with the Gin web framework.
 
 ```go
 package main
 
 import (
-	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/grahms/godantic"
+	"net/http"
 )
 
 type User struct {
-	Name  *string `json:"name" binding:"required"`
-	Email *string `json:"email" binding:"required"`
-	Age   *int    `json:"age"`
+	Name    *string `json:"name" binding:"required"`
+	Email   *string `json:"email" binding:"required"`
+	Age     *int    `json:"age"`
 }
 
 func main() {
-	jsonData := []byte(`{"name": "John Doe", "email": "john@example.com", "age": 30}`)
+	r := gin.Default()
 
-	var user User
-	validator := godantic.Validate{}
-	err := validator.BindJSON(jsonData, &user)
-	if err != nil {
-		fmt.Println("Validation Error:", err)
-		return
-	}
+	r.POST("/user", func(c *gin.Context) {
+		var user User
+		validator := godantic.Validate{}
 
-	fmt.Println("Validated user:", user)
-}
-```
-In the example above, the User struct represents the expected structure of the JSON data. The Validate struct from the godantic package is used to bind and validate the JSON data against the User object. If any validation errors occur, an error is returned. Otherwise, the user object is populated with the validated data.
+		jsonData, err := c.GetRawData()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
-Make sure to import the "github.com/grahms/godantic" package in your code before using it.
-## Advanced Usage
+		err = validator.BindJSON(jsonData, &user)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
-The `godantic` package provides advanced features to handle complex JSON structures, nested objects, and object lists. It ensures type compatibility, required fields, and unknown field validations. This section explains how to utilize these advanced features effectively.
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 
-### Error Messages and Handling
-
-When validation errors occur, the package returns an `Error` object that provides detailed information about the error. The `Error` object contains the following fields:
-
-- `ErrType`: The type of the error, which can be used for programmatic handling.
-- `Message`: A descriptive error message that provides additional information about the error.
-- `Path`: The error path that indicates the location of the error within the JSON structure.
-
-To handle validation errors, you can use a type assertion to check if the error is of type `*godantic.Error`. If it is, you can access the specific fields of the `Error` object for further processing or error reporting.
-
-Here's an example of handling validation errors:
-
-```go
-var user User
-validator := godantic.Validate{}
-err := validator.BindJSON(jsonData, &user)
-if err != nil {
-	switch e := err.(type) {
-	case *godantic.Error:
-		fmt.Printf("Validation Error: %s\n", e.Error())
-		fmt.Printf("Error Type: %s\n", e.ErrType)
-		fmt.Printf("Path: %s\n", e.Path)
-	default:
-		fmt.Println("Unexpected error:", err)
-	}
-	return
+	r.Run()
 }
 ```
 
-In the example above, the error is checked if it is of type `*godantic.Error`. If it is, the error message, error type, and error path are printed to the console. For unexpected errors, a generic error message is printed.
+In the example above, instead of using Gin's built-in JSON binding (`c.BindJSON(&user)`), we're using `godantic`'s `BindJSON` function. Here are the advantages:
 
-### Nested Paths
+1. **More control over validation**: `godantic` provides much more control over the validation process compared to Gin's built-in binding. It supports various validation methods and customizations like type compatibility checks, structure compatibility checks, and handling extra fields. You can customize these validation rules based on your needs.
 
-When a validation error occurs within nested objects or object lists, the error path reflects the nested structure of the JSON. Each level of nesting is separated by a dot (`.`) in the error path.
+2. **Detailed error reporting**: `godantic` provides detailed error types and messages which can be very useful for debugging and for providing precise error messages to the API users. In contrast, Gin's built-in binding returns a generic "binding error".
 
-For example, if an error occurs in the `number` field of the second phone object, the error path will be `phones[1].number`. This indicates that the error is located within the `number` field of the second phone object in the `phones` array.
+3. **Enum Validation**: `godantic` supports enum validation, which is not available in Gin's built-in JSON binding.
 
-Similarly, if an extra unknown field `foo` is provided within the second phone object, the error path will be `phones[1].foo`. This helps identify the exact location of the error within the JSON structure.
+4. **Nested Fields & Objects**: `godantic` supports validation for nested fields and objects as well as lists, which provides more flexibility and control compared to Gin's built-in binding.
 
-By examining the error paths, you can easily pinpoint the specific fields or objects that have validation issues and take appropriate actions based on the error path.
+Please remember that the Go's `json.Unmarshal` function used by `godantic` doesn't check for additional fields in the JSON input that are not present in the target struct. If you want to disallow additional fields, you might have to implement additional checks.
 
-### Customizing Validation Rules
+## Features
 
-The `godantic` package allows you to define custom validation rules using struct tags. You can utilize struct tags to specify required fields, define custom validation rules, or provide additional metadata for fields.
+- **BindJSON**: Parses and validates JSON data into a provided struct. It performs type checking and structural validation against the expected schema of the provided struct.
+- **InspectStruct**: Iteratively inspects the fields of a struct based on their type and validates them based on certain conditions.
+- **CheckTypeCompatibility**: Checks if two `map[string]interface{}` objects (request and reference data) are compatible in terms of structure and type.
 
-Here's an example of how to define custom validation rules using struct tags:
+## Error Types
 
-```go
-type User struct {
-	Name      string    `json:"name" binding:"required"`
-	Email     string    `json:"email" binding:"required,email"`
-	Age       int       `json:"age" binding:"gte=18"`
-	CreatedAt time.Time `json:"created_at"`
-	Address   Address   `json:"address" binding:"required"`
-	Phones    []Phone   `json:"phones" binding:"required,dive"`
-}
-```
-
-In the example above, the `binding` struct tag is used to define validation rules for each field:
-
-- The `required` rule indicates that the field must be present and non-empty.
-- The `email` rule specifies that the `Email` field must be a valid email address.
-- The `gte=18` rule specifies that the `Age` field must be greater than or equal to 18.
-- The `d
-
-ive` rule is used for the `Phones` field to apply further validation to each element in the array.
-
-By defining custom validation rules using struct tags, you can enforce specific constraints on your JSON structure and ensure data integrity.
-
-Feel free to experiment with different struct tags and validation rules to suit your specific requirements and data validation needs.
-
----
-
-By utilizing the advanced features of the `godantic` package, you can confidently validate complex JSON structures, handle validation errors effectively, and customize validation rules to ensure the integrity of your data.
-## Documentation
-For detailed information on how to use godantic, please refer to the GoDoc documentation.
+- `REQUIRED_FIELD_ERR`: Triggered when a field marked as required is not provided.
+- `INVALID_ENUM_ERR`: Triggered when a field value is not among the allowed enum values.
+- `INVALID_FIELD_ERR`: Triggered when an invalid field is provided.
+- `TYPE_MISMATCH_ERR`: Triggered when a field is given a value with an invalid type.
+- `SYNTAX_ERR`: Triggered when there is a syntax error in the JSON data.
+- `INVALID_JSON_ERR`: Triggered when the provided data is not valid JSON.
+- `EMPTY_JSON_ERR`: Triggered when the provided JSON data is empty.
+- `INVALID_TIME_ERR`: Triggered when a time.Time field has an invalid time value.
+- `EMPTY_STRING_ERR`: Triggered when a string field is empty.
+- `EMPTY_LIST_ERR`: Triggered when a list field is empty.
 
 ## Contributing
-Contributions to godantic are welcome! If you find any issues or have suggestions for improvements, please open an issue on the GitHub repository. Pull requests are also appreciated.
 
-Before contributing, please read the contribution guidelines for this project.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
+
 This project is licensed under the MIT License.
