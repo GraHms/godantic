@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 func decodeError(err error) error {
@@ -22,6 +23,13 @@ func decodeError(err error) error {
 			Path:    e.Error(),
 			Message: e.Error(),
 		}
+	//	This solution does not follow the godantic validation standards
+	case *time.ParseError:
+		return &Error{
+			ErrType: "INVALID_TIME_ERR",
+			Path:    "",
+			Message: fmt.Sprintf("Invalid time <%s>, expected format `%s`", e.Value, e.Layout),
+		}
 	default:
 		return nil
 	}
@@ -36,13 +44,13 @@ func decodeJSON(jsonData []byte, obj interface{}) error {
 	return nil
 }
 
-func (g *Validate) BindJSON(jsonData []byte, obj interface{}) error {
+func (g *Validate) BindJSON(jsonData []byte, obj any) error {
 	err := decodeJSON(jsonData, obj)
 	if err != nil {
 		return err
 	}
-	var requestDataMap map[string]interface{}
-	err = json.Unmarshal(jsonData, &requestDataMap)
+	var reqDataMap map[string]any
+	err = json.Unmarshal(jsonData, &reqDataMap)
 	if err != nil {
 		return &Error{
 			ErrType: "INVALID_JSON_ERR",
@@ -50,16 +58,16 @@ func (g *Validate) BindJSON(jsonData []byte, obj interface{}) error {
 			Message: "The given data is not a valid JSON",
 		}
 	}
-	if len(requestDataMap) == 0 {
+	if len(reqDataMap) == 0 {
 		return &Error{
 			ErrType: "EMPTY_JSON_ERR",
 			Path:    "",
 			Message: "The given json data is empty",
 		}
 	}
-	var referenceDataMap map[string]interface{}
+	var refDataMap map[string]any
 	refDataBytes, _ := json.Marshal(obj)
-	_ = json.Unmarshal(refDataBytes, &referenceDataMap)
+	_ = json.Unmarshal(refDataBytes, &refDataMap)
 
 	err = decodeJSON(jsonData, obj)
 	if err != nil {
@@ -70,7 +78,7 @@ func (g *Validate) BindJSON(jsonData []byte, obj interface{}) error {
 		return err
 	}
 
-	err = g.CheckTypeCompatibility(requestDataMap, referenceDataMap)
+	err = g.CheckTypeCompatibility(reqDataMap, refDataMap)
 	if err != nil {
 		return err
 	}

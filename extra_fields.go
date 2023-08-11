@@ -6,56 +6,38 @@ import (
 )
 
 type Validate struct {
-
 	IgnoreRequired bool
 	IgnoreMinLen   bool
+}
+
+func (g *Validate) CheckTypeCompatibility(reqData, refData map[string]any) error {
+
+	return g.typeCheck(reqData, refData, "")
 
 }
 
-func (g *Validate) CheckTypeCompatibility(requestData map[string]interface{}, referenceData map[string]interface{}) error {
+func (g *Validate) typeCheck(reqData, refData map[string]any, currentPath string) error {
+	for reqField := range reqData {
 
-	return g.typeCheck(requestData, referenceData, "")
-
-}
-
-func (g *Validate) typeCheck(requestData map[string]interface{}, referenceData map[string]interface{}, currentPath string) error {
-	for requestField := range requestData {
-
-		err := g.validateExtra(referenceData, requestField, currentPath)
-		if err != nil {
-			return err
-		}
-		// Check if requestField is a valid field in referenceData
-		fieldType, _ := referenceData[requestField]
-		// Check if field is an object
-		err = g.validateObject(fieldType, requestField, requestData, requestField)
-		if err != nil {
+		if err := g.validateExtra(refData, reqField, currentPath); err != nil {
 			return err
 		}
 
-		fieldListType, isFieldList := fieldType.([]interface{})
-		bodyListValue, isBodyListOk := requestData[requestField].([]interface{})
-    
-		if isFieldList && isBodyListOk && len(fieldListType) > 0 {
-			listObjectType := fieldListType[0].(map[string]interface{})
-			for _, obj := range bodyListValue {
-				listData := obj.(map[string]interface{})
-				result := g.typeCheck(listData, listObjectType, requestField)
-				if result != nil {
-					return result
-				}
-			}
+		fType := refData[reqField]
+
+		if err := g.validateField(fType, reqData[reqField], reqField); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
-func (g *Validate) validateExtra(referenceData map[string]interface{}, requestField string, currentPath string) error {
-	_, isValidField := referenceData[requestField]
+
+func (g *Validate) validateExtra(refData map[string]any, reqField, currentPath string) error {
+	_, isValidField := refData[reqField]
 	if !isValidField {
-		path := requestField
+		path := reqField
 		if len(currentPath) > 0 {
-			path = fmt.Sprintf("%s.%s", currentPath, requestField)
+			path = fmt.Sprintf("%s.%s", currentPath, reqField)
 		}
 		err := &Error{
 			ErrType: "INVALID_FIELD_ERR",
@@ -68,9 +50,9 @@ func (g *Validate) validateExtra(referenceData map[string]interface{}, requestFi
 	return nil
 }
 
-func (g *Validate) validateObject(fieldType interface{}, requestField string, requestData map[string]interface{}, path string) error {
-	fieldObjectType, isFieldTypeObject := fieldType.(map[string]interface{})
-	bodyObjectValue, _ := requestData[requestField].(map[string]interface{})
+func (g *Validate) validateObject(fieldType any, reqData map[string]any, reqField, path string) error {
+	fieldObjectType, isFieldTypeObject := fieldType.(map[string]any)
+	bodyObjectValue, _ := reqData[reqField].(map[string]any)
 	if isFieldTypeObject {
 		result := g.typeCheck(bodyObjectValue, fieldObjectType, path)
 		if result != nil {
@@ -78,4 +60,47 @@ func (g *Validate) validateObject(fieldType interface{}, requestField string, re
 		}
 	}
 	return nil
+}
+
+func (g *Validate) validateField(refType, reqValue any, path string) error {
+	switch refTypeAsserted := refType.(type) {
+	case map[string]any:
+		reqMap, ok := reqValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected map for path %s", path)
+		}
+		return g.typeCheck(reqMap, refTypeAsserted, path)
+	case []any:
+		return g.validateList(refTypeAsserted, reqValue, path)
+	default:
+		// Handle other types or validations here, if necessary
+	}
+	return nil
+}
+
+func (g *Validate) validateList(refListAny, reqValue any, path string) error {
+	refList, ok := refListAny.([]any)
+	if !ok {
+		return fmt.Errorf("expected reference type to be a list for path %s", path)
+	}
+
+	reqList, ok := reqValue.([]any)
+	if !ok || len(refList) == 0 {
+		return fmt.Errorf("expected request value to be a list for path %s", path)
+	}
+
+	refItem := refList[0]
+	for _, item := range reqList {
+		if err := g.validateField(refItem, item, path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (g *Validate) constructPath(parent, field string) string {
+	if parent == "" {
+		return field
+	}
+	return fmt.Sprintf("%s.%s", parent, field)
 }

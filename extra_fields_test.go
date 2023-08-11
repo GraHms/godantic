@@ -120,3 +120,60 @@ func TestForbidExtraFieldsInListObject(t *testing.T) {
 	err := g.CheckTypeCompatibility(requestData, referenceData)
 	assert.EqualError(t, err, "Invalid field <object.extraField>")
 }
+
+func TestShouldCheckTypeCompatibility(t *testing.T) {
+	// 1. Basic Compatibility
+	t.Run("compatible basic types", func(t *testing.T) {
+		v := &Validate{}
+		reqData := map[string]interface{}{"key": "value"}
+		refData := map[string]interface{}{"key": ""}
+		err := v.CheckTypeCompatibility(reqData, refData)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+	})
+
+	// 2. Nested Map Compatibility
+	t.Run("compatible nested map", func(t *testing.T) {
+		v := &Validate{}
+		reqData := map[string]interface{}{"parent": map[string]interface{}{"child": "value"}}
+		refData := map[string]interface{}{"parent": map[string]interface{}{"child": ""}}
+		err := v.CheckTypeCompatibility(reqData, refData)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+	})
+
+	// 3. List Compatibility
+	t.Run("compatible list types", func(t *testing.T) {
+		v := &Validate{}
+		reqData := map[string]interface{}{"key": []interface{}{"value1", "value2"}}
+		refData := map[string]interface{}{"key": []interface{}{""}}
+		err := v.CheckTypeCompatibility(reqData, refData)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+	})
+
+	// 4. Invalid Fields
+	t.Run("extra field in reqData", func(t *testing.T) {
+		v := &Validate{}
+		reqData := map[string]interface{}{"key": "value", "extra": "value"}
+		refData := map[string]interface{}{"key": ""}
+		err := v.CheckTypeCompatibility(reqData, refData)
+		if err == nil {
+			t.Error("Expected an error for extra field, got none")
+		}
+	})
+
+	// 5. Default Types (Example for string)
+	t.Run("basic string type", func(t *testing.T) {
+		v := &Validate{}
+		reqData := map[string]interface{}{"key": "value"}
+		refData := map[string]interface{}{"key": "default"}
+		err := v.CheckTypeCompatibility(reqData, refData)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+	})
+}
