@@ -129,9 +129,11 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 			return RequiredFieldError(f, tree)
 
 		}
-	case isPtr(valField):
-
-		println("I am a string")
+	case isPtr(v):
+		if !v.IsValid() || v.IsNil() {
+			return nil // nil pointer is valid
+		}
+		return g.inspect(v.Elem().Interface(), tree)
 	}
 	// Check for enum validation tags.
 	if len(enums) > 0 {
@@ -143,12 +145,14 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 		}
 	}
 
-
 	return nil
 }
 
 func (g *Validate) strEnums(f reflect.StructField, val reflect.Value, tree string, allowedValues []string) error {
 	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return nil
+		}
 		val = val.Elem()
 	}
 	fieldValue := val.String()
@@ -160,7 +164,6 @@ func (g *Validate) strEnums(f reflect.StructField, val reflect.Value, tree strin
 	}
 
 	if _, ok := allowedMap[fieldValue]; !ok {
-		// If the value is not one of the allowed enums, return an error.
 		return &Error{
 			ErrType: "INVALID_ENUM_ERR",
 			Path:    fieldName(f, tree),
@@ -175,7 +178,7 @@ func (g *Validate) strEnums(f reflect.StructField, val reflect.Value, tree strin
 func fieldName(f reflect.StructField, tree string) string {
 	var name string
 	if f.Tag != "" {
-		jsonTag := f.Tag.Get("json")
+		jsonTag := strings.Split(f.Tag.Get("json"), ",")[0]
 		name = jsonTag
 		if len(tree) > 0 {
 			name = tree + "." + jsonTag
