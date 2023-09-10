@@ -105,6 +105,10 @@ func (g *Validate) checkList(v reflect.Value, tree string) error {
 func (g *Validate) checkStruct(v reflect.Value, tree string) error {
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
+		if isTime(v.Field(i)) {
+			// lets ignore time.Time fields, they are already checked in bindJSON
+			continue
+		}
 		err := g.checkField(v, t, tree, i)
 		if err != nil {
 			return err
