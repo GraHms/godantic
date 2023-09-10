@@ -85,7 +85,7 @@ func (g *Validate) validateList(refListAny, reqValue any, path string) error {
 	}
 
 	reqList, ok := reqValue.([]any)
-	if !ok || len(refList) == 0 {
+	if !ok {
 		return fmt.Errorf("expected request value to be a list for path %s", path)
 	}
 
