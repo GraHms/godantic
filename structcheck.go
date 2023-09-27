@@ -121,6 +121,9 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 	f := t.Field(i)
 
 	enums := f.Tag.Get("enum")
+	if len(enums) == 0 {
+		f.Tag.Get("enums")
+	}
 	valField := v.Field(i)
 	switch {
 	case (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr) && !valField.IsNil():
