@@ -34,6 +34,21 @@ func TestReflectStruct(t *testing.T) {
 
 }
 
+func TestShouldValidateDefaultValue(t *testing.T) {
+	g := &Validate{}
+
+	// Test that the function returns an error if a required field is missing.
+	type Product struct {
+		Type  string  `json:"type" binding:"required"`
+		Name  string  `json:"name"`
+		Price *string `json:"price"`
+	}
+	p := Product{Type: "cheap", Name: "orange"}
+	err := g.InspectStruct(p)
+	assert.Nil(t, err)
+	assert.Equal(t, "orange", p.Name)
+
+}
 func TestReflectStructSlice(t *testing.T) {
 	g := &Validate{}
 
@@ -43,7 +58,7 @@ func TestReflectStructSlice(t *testing.T) {
 		Field2 *string `json:"field_2"`
 	}
 	type testStruct1 struct {
-		Field1     *string         `json:"field_1" binding:"required"`
+		Field1     string          `json:"field_1" binding:"required"`
 		Field2     *string         `json:"field_2"`
 		SliceField *[]*sliceStruct `json:"slice_field"`
 	}
