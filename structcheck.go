@@ -123,9 +123,11 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 
 	enums := f.Tag.Get("enum")
 	if len(enums) == 0 {
-		f.Tag.Get("enums")
+		enums = f.Tag.Get("enums")
 	}
+
 	valField := v.Field(i)
+
 	if tag := f.Tag.Get("binding"); tag == "ignore" && !valField.IsNil() {
 		return &Error{
 			ErrType: "INVALID_FIELD_ERR",
@@ -133,23 +135,33 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 			Message: fmt.Sprintf("Invalid field <%s>", fieldName(f, tree)),
 		}
 	}
+
 	switch {
 	case (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr) && !valField.IsNil():
 		err := g.inspect(valField.Interface(), fieldName(f, tree))
 		if err != nil {
 			return err
 		}
-	case g.IgnoreRequired != true:
-		if isFieldRequired(f) && valField.IsNil() {
+	case f.Type.Kind() != reflect.Ptr:
+		if !g.IgnoreRequired && isFieldRequired(f) && reflect.DeepEqual(valField.Interface(), reflect.Zero(f.Type).Interface()) {
 			return RequiredFieldError(f, tree)
+		}
+	case !g.IgnoreRequired:
+		if isFieldRequired(f) {
+			if f.Type.Kind() == reflect.Ptr && valField.IsNil() {
+				return RequiredFieldError(f, tree)
+			}
 
 		}
+
 	case isPtr(v):
 		if !v.IsValid() || v.IsNil() {
 			return nil // nil pointer is valid
 		}
 		return g.inspect(v.Elem().Interface(), tree)
+
 	}
+
 	// Check for enum validation tags.
 	if len(enums) > 0 {
 		enumValues := strings.Split(strings.TrimSpace(enums), ",")
