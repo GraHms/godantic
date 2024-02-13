@@ -106,7 +106,7 @@ func (g *Validate) checkStruct(v reflect.Value, tree string) error {
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		if isTime(v.Field(i)) {
-			// lets ignore time.Time fields, they are already checked in bindJSON
+			// ignore time.Time fields, they are already checked in bindJSON
 			continue
 		}
 		err := g.checkField(v, t, tree, i)
@@ -118,6 +118,7 @@ func (g *Validate) checkStruct(v reflect.Value, tree string) error {
 }
 
 func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i int) error {
+
 	f := t.Field(i)
 
 	enums := f.Tag.Get("enum")
@@ -125,6 +126,13 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 		f.Tag.Get("enums")
 	}
 	valField := v.Field(i)
+	if tag := f.Tag.Get("binding"); tag == "ignore" && !valField.IsNil() {
+		return &Error{
+			ErrType: "INVALID_FIELD_ERR",
+			Path:    fieldName(f, tree),
+			Message: fmt.Sprintf("Invalid field <%s>", fieldName(f, tree)),
+		}
+	}
 	switch {
 	case (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr) && !valField.IsNil():
 		err := g.inspect(valField.Interface(), fieldName(f, tree))
