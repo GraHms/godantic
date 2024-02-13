@@ -152,3 +152,28 @@ func TestShouldValidateListMinLen(t *testing.T) {
 	assert.Equal(t, "EMPTY_LIST_ERR", err1.(*Error).ErrType)
 
 }
+
+func TestStuckCheck(t *testing.T) {
+	t.Run("should explicitly ignore struct fields", func(t *testing.T) {
+
+		g := &Validate{}
+
+		// Test that the function returns an error if a required field is missing.
+		type Address struct {
+			Street *string `json:"street"`
+			City   *string `json:"city" binding:"ignore"`
+		}
+		type User struct {
+			Name    *string  `json:"name" binding:"required"`
+			Status  *string  `json:"status" binding:"ignore"`
+			Address *Address `json:"address"`
+		}
+		data := "some val"
+		val1 := User{Name: &data, Address: &Address{City: &data, Street: &data}}
+		err1 := g.InspectStruct(val1)
+		assert.Error(t, err1)
+		assert.Equal(t, "INVALID_FIELD_ERR", err1.(*Error).ErrType)
+		assert.Equal(t, "address.city", err1.(*Error).Path)
+
+	})
+}
