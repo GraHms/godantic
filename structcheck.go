@@ -3,7 +3,9 @@ package godantic
 
 import (
 	"fmt"
+	"log"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -52,6 +54,111 @@ func (g *Validate) inspect(val interface{}, tree string) error {
 		return nil
 
 	}
+}
+
+func getFormatRegex(formatTag string) string {
+	switch formatTag {
+	case "email":
+		return `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	case "url":
+		return `^(http|https)://[a-zA-Z0-9./?=_%-&]+$`
+	case "date":
+		return `^\d{4}-\d{2}-\d{2}$`
+	case "time":
+		return `^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$`
+	case "uuid":
+		return `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
+	case "ip":
+		return `^(\d{1,3}\.){3}\d{1,3}$`
+	case "credit_card":
+		return `^\d{4}-\d{4}-\d{4}-\d{4}$`
+	case "postal_code":
+		return `^[a-zA-Z0-9]+$`
+	case "phone":
+		return `^\+[1-9]\d{1,14}$`
+	case "ssn":
+		return `^\d{3}-\d{2}-\d{4}$`
+	case "credit_card_expiry":
+		return `^(0[1-9]|1[0-2])\/(20\d{2}|2[1-9]\d{1})$`
+	case "latitude":
+		return `^(-?([0-8]?[0-9]\.\d+|90(\.0+)?))$`
+	case "longitude":
+		return `^(-?((1?[0-7]?|[0-9]?)[0-9]\.\d+|180(\.0+)?))$`
+	case "hex_color":
+		return `^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$`
+	case "mac_address":
+		return `^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`
+	case "mz-msisdn":
+		return `^258\d{9}$`
+
+	case "mz-nuit":
+		return `^\d{9}$`
+
+	default:
+		return ""
+	}
+}
+
+func (g *Validate) formatValidation(f reflect.StructField, v reflect.Value, tree string) error {
+	tag := f.Tag.Get("format")
+	if tag == "" {
+		return nil
+	}
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+	fieldValue := v.String()
+	formatRegex := getFormatRegex(tag)
+	if matchRegexPattern(formatRegex, fieldValue, f, tree) != nil {
+		return &Error{
+			ErrType: fmt.Sprintf("INVALID_%s_ERR", strings.ToUpper(tag)),
+			Path:    fieldName(f, tree),
+			Message: fmt.Sprintf("error on field <%s>. the given value '%s' is not a valid %s", fieldName(f, tree), fieldValue, tag),
+		}
+	}
+
+	return matchRegexPattern(formatRegex, fieldValue, f, tree)
+}
+
+func matchRegexPattern(regexpPattern, fieldValue string, f reflect.StructField, tree string) error {
+	// Compile the regular expression pattern
+	regexpPatternCompiled, err := regexp.Compile(regexpPattern)
+	if err != nil {
+		return err // Handle error
+	}
+
+	log.Printf("the field value is %s", fieldValue)
+
+	// Check if the field's value matches the regular expression pattern
+	if !regexpPatternCompiled.MatchString(fieldValue) {
+		return &Error{
+			ErrType: "INVALID_PATTERN_ERR",
+			Path:    fieldName(f, tree),
+			Message: fmt.Sprintf("The field <%s> value '%s' does not match the required pattern: %s", fieldName(f, tree), fieldValue, regexpPattern),
+		}
+	}
+	return nil
+}
+
+func (g *Validate) regexPattern(f reflect.StructField, v reflect.Value, tree string) error {
+	regexpPattern := f.Tag.Get("regex")
+	if regexpPattern == "" {
+		return nil
+	}
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+	fieldValue := v.String()
+
+	// Compile the regular expression pattern
+	return matchRegexPattern(regexpPattern, fieldValue, f, tree)
+
 }
 
 func (g *Validate) checkTime(v reflect.Value, tree string) error {
@@ -160,6 +267,13 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 		}
 		return g.inspect(v.Elem().Interface(), tree)
 
+	}
+
+	if err := g.regexPattern(f, valField, tree); err != nil {
+		return err
+	}
+	if err := g.formatValidation(f, valField, tree); err != nil {
+		return err
 	}
 
 	// Check for enum validation tags.
