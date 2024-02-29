@@ -1,6 +1,6 @@
 # Godantic
 
-Godantic is a Go package for inspecting and validating JSON-like data against Go struct types and schemas. It provides functionalities for checking type compatibility, structure compatibility, and other validations such as empty string, invalid time, and minimum length list checks.
+Godantic is a Go package for inspecting and validating JSON-like data against Go struct types and schemas. It provides functionalities for checking type compatibility, structure compatibility, and other validations such as empty string, invalid time, minimum length list checks, regex pattern matching, and format validation.
 
 ## Getting Started
 
@@ -20,8 +20,8 @@ import "github.com/grahms/godantic"
 
 ```go
 type Person struct {
-	Name *string `json:"name" binding:"required"`
-	Age  *int    `json:"age"`
+    Name *string `json:"name" binding:"required"`
+    Age  *int    `json:"age"`
 }
 
 var jsonData = []byte(`{"name": "John", "age": 30}`)
@@ -41,8 +41,8 @@ if err != nil {
 
 ```go
 type Person struct {
-	Name *string `json:"name" binding:"required"`
-	Role *string `json:"role" enum:"admin,user"`
+    Name *string `json:"name" binding:"required"`
+    Role *string `json:"role" enum:"admin,user"`
 }
 
 // Here, the Role field must be either 'admin' or 'user'. If it's not, an error is returned.
@@ -66,15 +66,15 @@ if err != nil {
 
 ```go
 type CustomError struct {
-	ErrType string
-	Message string
-	Path    string
-	err     error
+    ErrType string
+    Message string
+    Path    string
+    err     error
 }
 
 func (e *CustomError) Error() string {
-	e.err = errors.New(e.Message)
-	return e.err.Error()
+    e.err = errors.New(e.Message)
+    return e.err.Error()
 }
 
 // Now you can create your own error type and return it in your custom validation functions.
@@ -94,23 +94,23 @@ if err != nil {
 
 ```go
 type Address struct {
-	City  *string `json:"city" binding:"required"`
-	State *string `json:"state" binding:"required"`
+    City  *string `json:"city" binding:"required"`
+    State *string `json:"state" binding:"required"`
 }
 
 type Person struct {
-	Name    *string `json:"name" binding:"required"`
-	Age     *int    `json:"age"`
-	Address *Address `json:"address"`
+    Name    *string `json:"name" binding:"required"`
+    Age     *int    `json:"age"`
+    Address *Address `json:"address"`
 }
 
 var jsonData = []byte(`{
-	"name": "John",
-	"age": 30,
-	"address": {
-		"city": "New York",
-		"state": "NY"
-	}
+    "name": "John",
+    "age": 30,
+    "address": {
+        "city": "New York",
+        "state": "NY"
+    }
 }`)
 
 var person Person
@@ -129,29 +129,29 @@ In this example, the `Person` struct has a nested `Address` struct. The `godanti
 
 ```go
 type Skill struct {
-	Name *string `json:"name" binding:"required"`
-	Level *int `json:"level"`
+    Name *string `json:"name" binding:"required"`
+    Level *int `json:"level"`
 }
 
 type Person struct {
-	Name  *string `json:"name" binding:"required"`
-	Age   *int    `json:"age"`
-	Skills []Skill `json:"skills"`
+    Name  *string `json:"name" binding:"required"`
+    Age   *int    `json:"age"`
+    Skills []Skill `json:"skills"`
 }
 
 var jsonData = []byte(`{
-	"name": "John",
-	"age": 30,
-	"skills": [
-		{
-			"name": "Go",
-			"level": 5
-		},
-		{
-			"name": "Python",
-			"level": 4
-		}
-	]
+    "name": "John",
+    "age": 30,
+    "skills": [
+        {
+            "name": "Go",
+            "level": 5
+        },
+        {
+            "name": "Python",
+            "level": 4
+        }
+    ]
 }`)
 
 var person Person
@@ -166,7 +166,6 @@ if err != nil {
 
 In this example, the `Person` struct has a `Skills` field that is a slice of `Skill` structs. The `godantic` package will iterate over the list and validate each object in the list.
 
-
 ## Integration with Web Frameworks
 
 ### Using Godantic with Gin
@@ -177,40 +176,42 @@ Here's an example of how to use the `godantic` package with the Gin web framewor
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/grahms/godantic"
-	"net/http"
+    "github.com/gin-gonic/gin"
+    "github.com/grahms/godantic"
+    "net/http"
 )
 
 type User struct {
-	Name    *string `json:"name" binding:"required"`
-	Email   *string `json:"email" binding:"required"`
-	Age     *int    `json:"age"`
+    Name    *string `json:"name" binding:"required"`
+    Email   *string `json:"email" binding:"required"`
+    Age     *int    `json:"age"`
 }
 
 func main() {
-	r := gin.Default()
+    r := gin.Default()
 
-	r.POST("/user", func(c *gin.Context) {
-		var user User
-		validator := godantic.Validate{}
+    r.POST("/user", func(c *gin.Context) {
+        var user User
+        validator := godantic.Validate{}
 
-		jsonData, err := c.GetRawData()
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+        jsonData, err := c.GetRawData()
+        if err != nil {
+            c.JSON(http
 
-		err = validator.BindJSON(jsonData, &user)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+        err = validator.BindJSON(jsonData, &user)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-	r.Run()
+        c.JSON(http.StatusOK, gin.H{"status": "ok"})
+    })
+
+    r.Run()
 }
 ```
 
@@ -244,6 +245,93 @@ Please remember that the Go's `json.Unmarshal` function used by `godantic` doesn
 - `INVALID_TIME_ERR`: Triggered when a time.Time field has an invalid time value.
 - `EMPTY_STRING_ERR`: Triggered when a string field is empty.
 - `EMPTY_LIST_ERR`: Triggered when a list field is empty.
+- `INVALID_REGEX_ERR`: Triggered when a field value does not match the required regex pattern.
+- `INVALID_FORMAT_ERR`: Triggered when a field value does not match the required format.
+
+## Format Tags
+
+The following table lists the supported format tags and their corresponding regular expressions:
+
+| Format Tag          | Description                      | Example Use Case                      |
+|---------------------|----------------------------------|---------------------------------------|
+| email               | Email address format             | Validating user email addresses       |
+| url                 | URL format                       | Validating website URLs               |
+| date                | Date format (YYYY-MM-DD)        | Validating dates in a specific format |
+| time                | Time format (HH:MM:SS)          | Validating times in a specific format |
+| uuid                | UUID format                      | Validating UUIDs                      |
+| ip                  | IP address format                | Validating IPv4 or IPv6 addresses     |
+| credit_card         | Credit card number format        | Validating credit card numbers        |
+| postal_code         | Postal code format               | Validating postal codes               |
+| phone               | Phone number format              | Validating phone numbers              |
+| ssn                 | Social Security Number format    | Validating SSN                        |
+| credit_card_expiry  | Credit card expiry date format  | Validating credit card expiry dates   |
+| latitude            | Latitude format                  | Validating latitude coordinates       |
+| longitude           | Longitude format                 | Validating longitude coordinates      |
+| hex_color           | Hex color format                 | Validating hex color codes            |
+| mac_address         | MAC address format               | Validating MAC addresses              |
+| html_tag            | HTML tag format                  | Validating HTML tags                  |
+| mz-msisdn           | Mozambican phone number format   | Validating Mozambican phone numbers   |
+| mz-nuit             | Mozambican NUIT format           | Validating Mozambican NUIT numbers    |
+
+
+
+## Using the `ignore` Tag
+
+The `ignore` tag allows you to exclude specific fields from input validation while still retaining them in the struct. This can be useful for fields representing metadata or internal information that shouldn't be validated during input but are required for other purposes.
+
+### Example
+
+Consider a `User` struct with an `ID` field that should be excluded from input validation but retained in the struct for internal use:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/grahms/godantic"
+)
+
+type User struct {
+    ID        int    `json:"id" binding:"ignore"` // ID field is ignored during input validation
+    FirstName string `json:"first_name" binding:"required"`
+    LastName  string `json:"last_name" binding:"required"`
+    Email     string `json:"email" binding:"required" format:"email"`
+    // Other fields...
+}
+
+func main() {
+    // Example JSON data representing user input
+    jsonData := []byte(`{
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john.doe@example.com"
+        // No "id" field included
+    }`)
+
+    // Create a new instance of the validator
+    validator := godantic.Validate{}
+
+    // Create an instance of the User struct
+    var user User
+
+    // Bind and validate the JSON data against the User struct
+    err := validator.BindJSON(jsonData, &user)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+
+    // Validation successful, process the user data
+    fmt.Printf("User ID: %d\n", user.ID) // ID is still accessible despite being ignored during validation
+    fmt.Printf("Name: %s %s\n", user.FirstName, user.LastName)
+    fmt.Printf("Email: %s\n", user.Email)
+}
+```
+
+In this example:
+
+- The `ID` field represents a unique identifier for the user and is marked with the `ignore` tag.
+- Despite being ignored during validation, the `ID` field remains accessible in the `User` struct after validation, allowing you to utilize it for internal operations or data processing.
 
 ## Contributing
 
@@ -252,3 +340,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License.
+
+
+This README.md includes detailed information about how to use Godantic, including simple and advanced usage examples, integration with web frameworks, features, error types, supported format tags, and more. If you have any further updates or modifications, please let me know!
