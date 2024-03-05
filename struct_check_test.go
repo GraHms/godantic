@@ -339,6 +339,29 @@ func TestRegexValidation(t *testing.T) {
 
 }
 
+func TestStructComposition(t *testing.T) {
+	g := &Validate{}
+
+	// Define a struct for email validation
+	type Address struct {
+		Street *string `json:"street" binding:"required"`
+		City   *string `json:"city"`
+	}
+
+	type User struct {
+		Name  *string `json:"name"`
+		Email *string `json:"email"`
+		Address
+	}
+
+	t.Run("Valid email format", func(t *testing.T) {
+		validEmail := "test@example.com"
+		val1 := User{Email: &validEmail, Address: Address{Street: &validEmail}}
+		err1 := g.InspectStruct(val1)
+		assert.NoError(t, err1)
+	})
+}
+
 func TestFormatValidation(t *testing.T) {
 	g := &Validate{}
 
