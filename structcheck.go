@@ -90,10 +90,10 @@ func getFormatRegex(formatTag string) string {
 		return `^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`
 	case "mz-msisdn":
 		return `^258\d{9}$`
-
 	case "mz-nuit":
 		return `^\d{9}$`
-
+	case "mz-bi":
+		return `^\d{12}[A-Z]$`
 	default:
 		return ""
 	}
