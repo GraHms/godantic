@@ -90,10 +90,10 @@ func getFormatRegex(formatTag string) string {
 		return `^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`
 	case "mz-msisdn":
 		return `^258\d{9}$`
-
 	case "mz-nuit":
 		return `^\d{9}$`
-
+	case "mz-bi":
+		return `^\d{12}[A-Z]$`
 	default:
 		return ""
 	}
@@ -244,9 +244,15 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 	}
 
 	switch {
-	case (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Ptr) && !valField.IsNil():
-		err := g.inspect(valField.Interface(), fieldName(f, tree))
-		if err != nil {
+
+	case f.Type.Kind() == reflect.Ptr && !valField.IsNil():
+		// Handle pointer fields
+		if err := g.inspect(valField.Interface(), fieldName(f, tree)); err != nil {
+			return err
+		}
+	case f.Type.Kind() == reflect.Struct:
+		// Handle non-pointer struct fields
+		if err := g.checkStruct(valField, fieldName(f, tree)); err != nil {
 			return err
 		}
 	case f.Type.Kind() != reflect.Ptr:

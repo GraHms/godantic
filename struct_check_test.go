@@ -339,6 +339,29 @@ func TestRegexValidation(t *testing.T) {
 
 }
 
+func TestStructComposition(t *testing.T) {
+	g := &Validate{}
+
+	// Define a struct for email validation
+	type Address struct {
+		Street *string `json:"street" binding:"required"`
+		City   *string `json:"city"`
+	}
+
+	type User struct {
+		Name  *string `json:"name"`
+		Email *string `json:"email"`
+		Address
+	}
+
+	t.Run("Valid email format", func(t *testing.T) {
+		validEmail := "test@example.com"
+		val1 := User{Email: &validEmail, Address: Address{Street: &validEmail}}
+		err1 := g.InspectStruct(val1)
+		assert.NoError(t, err1)
+	})
+}
+
 func TestFormatValidation(t *testing.T) {
 	g := &Validate{}
 
@@ -378,6 +401,25 @@ func TestFormatValidation(t *testing.T) {
 		val4 := URLStruct{URL: &invalidURL}
 		err4 := g.InspectStruct(val4)
 		assert.Error(t, err4)
+	})
+
+	// Define a struct for ID validation
+	type IDStruct struct {
+		ID *string `json:"id" binding:"required" format:"mz-bi"`
+	}
+
+	t.Run("Valid id format", func(t *testing.T) {
+		validId := "101011223324B"
+		val5 := IDStruct{ID: &validId}
+		err5 := g.InspectStruct(val5)
+		assert.NoError(t, err5)
+	})
+
+	t.Run("Invalid ID format", func(t *testing.T) {
+		invalidId := "882233X"
+		val6 := IDStruct{ID: &invalidId}
+		err6 := g.InspectStruct(val6)
+		assert.Error(t, err6)
 	})
 }
 
@@ -421,6 +463,8 @@ func TestGetFormatRegex(t *testing.T) {
 		{"mz-msisdn", "123456789", false},
 		{"mz-nuit", "123456789", true},
 		{"mz-nuit", "invalid-nuit", false},
+		{"mz-bi", "101011223324B", true},
+		{"mz-bi", "invalid-bi", false},
 	}
 
 	for _, tc := range testCases {
