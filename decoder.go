@@ -97,3 +97,15 @@ type Error struct {
 	Path    string
 	err     error
 }
+
+type CustomErr struct {
+	ErrType string
+	Message string
+	Path    string
+	err     error
+}
+
+func (e *CustomErr) Error() string {
+	e.err = errors.New(e.Message)
+	return e.err.Error()
+}

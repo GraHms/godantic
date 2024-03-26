@@ -362,6 +362,39 @@ func TestStructComposition(t *testing.T) {
 	})
 }
 
+type Address struct {
+	Street *string `json:"street" binding:"required"`
+	City   *string `json:"city"`
+}
+
+type User struct {
+	Name  *string `json:"name"`
+	Email *string `json:"email"`
+	Address
+}
+
+func (u User) Validate() *CustomErr {
+	if *u.Email != "test@example.com" {
+		return &CustomErr{
+			ErrType: "CUSTOM_EMAIL_ERR",
+			Message: "should not accept invalid email",
+		}
+	}
+	return nil
+}
+func TestCustomValidation(t *testing.T) {
+	g := &Validate{}
+
+	t.Run("should validate custom user valitador", func(t *testing.T) {
+		validEmail := "wrong@example.com"
+		city := "MAPUTO"
+		val1 := User{Email: &validEmail, Address: Address{Street: &validEmail, City: &city}}
+		err1 := g.InspectStruct(val1)
+		assert.Error(t, err1)
+		assert.Equal(t, err1.Error(), "should not accept invalid email")
+	})
+}
+
 func TestFormatValidation(t *testing.T) {
 	g := &Validate{}
 
