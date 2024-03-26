@@ -43,7 +43,7 @@ func (g *Validate) inspect(val interface{}, tree string) error {
 	case isPtr(v):
 		return g.inspect(v.Elem().Interface(), tree)
 	case isStruct(v):
-		return g.checkStruct(v, tree)
+		return g.checkStruct(val, v, tree)
 	case isString(v):
 		return g.checkString(v, tree)
 	case isTime(v):
@@ -209,14 +209,25 @@ func (g *Validate) checkList(v reflect.Value, tree string) error {
 	return nil
 }
 
-func (g *Validate) checkStruct(v reflect.Value, tree string) error {
+func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string) error {
 	t := v.Type()
+	if customValidator, ok := val.(ValidationPlugin); ok {
+		if err := customValidator.Validate(); err != nil {
+			return &Error{
+				ErrType: err.ErrType,
+				Message: err.Message,
+				Path:    err.Path,
+				err:     err,
+			}
+		}
+	}
 	for i := 0; i < t.NumField(); i++ {
 		if isTime(v.Field(i)) {
 			// ignore time.Time fields, they are already checked in bindJSON
 			continue
 		}
-		err := g.checkField(v, t, tree, i)
+
+		err := g.checkField(val, v, t, tree, i)
 		if err != nil {
 			return err
 		}
@@ -224,7 +235,7 @@ func (g *Validate) checkStruct(v reflect.Value, tree string) error {
 	return nil
 }
 
-func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i int) error {
+func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, tree string, i int) error {
 
 	f := t.Field(i)
 
@@ -252,7 +263,7 @@ func (g *Validate) checkField(v reflect.Value, t reflect.Type, tree string, i in
 		}
 	case f.Type.Kind() == reflect.Struct:
 		// Handle non-pointer struct fields
-		if err := g.checkStruct(valField, fieldName(f, tree)); err != nil {
+		if err := g.checkStruct(val, valField, fieldName(f, tree)); err != nil {
 			return err
 		}
 	case f.Type.Kind() != reflect.Ptr:
