@@ -3,7 +3,6 @@ package godantic
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"regexp"
 	"strings"
@@ -38,7 +37,12 @@ func (g *Validate) InspectStruct(val interface{}) error {
 }
 
 func (g *Validate) inspect(val interface{}, tree string) error {
+
 	v := getValueOf(val)
+	if _, ok := v.Interface().(*time.Time); ok {
+		println("I found time type")
+		return nil
+	}
 	switch {
 	case isPtr(v):
 		return g.inspect(v.Elem().Interface(), tree)
@@ -129,9 +133,6 @@ func matchRegexPattern(regexpPattern, fieldValue string, f reflect.StructField, 
 	if err != nil {
 		return err // Handle error
 	}
-
-	log.Printf("the field value is %s", fieldValue)
-
 	// Check if the field's value matches the regular expression pattern
 	if !regexpPatternCompiled.MatchString(fieldValue) {
 		return &Error{
@@ -211,16 +212,7 @@ func (g *Validate) checkList(v reflect.Value, tree string) error {
 
 func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string) error {
 	t := v.Type()
-	if customValidator, ok := val.(ValidationPlugin); ok {
-		if err := customValidator.Validate(); err != nil {
-			return &Error{
-				ErrType: err.ErrType,
-				Message: err.Message,
-				Path:    err.Path,
-				err:     err,
-			}
-		}
-	}
+
 	for i := 0; i < t.NumField(); i++ {
 		if isTime(v.Field(i)) {
 			// ignore time.Time fields, they are already checked in bindJSON
@@ -232,12 +224,17 @@ func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string) er
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, tree string, i int) error {
 
 	f := t.Field(i)
+	if f.PkgPath != "" {
+		// Field is unexported, handle it gracefully
+		return nil
+	}
 
 	enums := f.Tag.Get("enum")
 	if len(enums) == 0 {
@@ -246,7 +243,7 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 
 	valField := v.Field(i)
 
-	if tag := f.Tag.Get("binding"); tag == "ignore" && !valField.IsNil() {
+	if tag := f.Tag.Get("binding"); tag == "ignore" && !reflect.DeepEqual(valField.Interface(), reflect.Zero(f.Type).Interface()) {
 		return &Error{
 			ErrType: "INVALID_FIELD_ERR",
 			Path:    fieldName(f, tree),
@@ -300,6 +297,16 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 
 		if err != nil {
 			return err
+		}
+	}
+	if customValidator, ok := val.(ValidationPlugin); ok {
+		if err := customValidator.Validate(); err != nil {
+			return &Error{
+				ErrType: err.ErrType,
+				Message: err.Message,
+				Path:    err.Path,
+				err:     err,
+			}
 		}
 	}
 
