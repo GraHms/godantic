@@ -309,6 +309,11 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 			}
 		}
 	}
+	if df, ok := val.(DynamicFieldsValidator); ok {
+		if err := validateDynamicFields(df.GetValue(), df.GetAttribute(), df.GetValueType(), tree); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
