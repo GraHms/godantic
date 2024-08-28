@@ -18,7 +18,7 @@ func validateDynamicFields(fieldValue interface{}, attr, valueType, tree string)
 
 	// Perform validation based on the value type
 	switch valueType {
-	case "numeric", "number", "integer":
+	case "numeric", "number", "integer", "int":
 		// Check if the value is an integer
 		_, ok := fieldValue.(int)
 		if !ok {

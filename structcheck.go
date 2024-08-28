@@ -33,23 +33,21 @@ func isList(value reflect.Value) bool {
 var TimeType = reflect.TypeOf(time.Time{})
 
 func (g *Validate) InspectStruct(val interface{}) error {
-	return g.inspect(val, "")
+	return g.inspect(val, "", 0, reflect.StructField{})
 }
 
-func (g *Validate) inspect(val interface{}, tree string) error {
-
+func (g *Validate) inspect(val interface{}, tree string, i int, f reflect.StructField) error {
 	v := getValueOf(val)
 	if _, ok := v.Interface().(*time.Time); ok {
-		println("I found time type")
 		return nil
 	}
 	switch {
 	case isPtr(v):
-		return g.inspect(v.Elem().Interface(), tree)
+		return g.inspect(v.Elem().Interface(), tree, i, f)
 	case isStruct(v):
 		return g.checkStruct(val, v, tree)
 	case isString(v):
-		return g.checkString(v, tree)
+		return g.checkString(v, tree, i, f)
 	case isTime(v):
 		return g.checkTime(v, tree)
 	case isList(v):
@@ -174,7 +172,11 @@ func (g *Validate) checkTime(v reflect.Value, tree string) error {
 	return nil
 }
 
-func (g *Validate) checkString(v reflect.Value, tree string) error {
+func (g *Validate) checkString(v reflect.Value, tree string, _ int, f reflect.StructField) error {
+	passTag := f.Tag.Get("pass-empty")
+	if passTag == "true" {
+		return nil
+	}
 	s := strings.TrimSpace(v.String())
 	if len(s) < 1 {
 		return &Error{
@@ -201,7 +203,7 @@ func (g *Validate) checkList(v reflect.Value, tree string) error {
 		}
 	}
 	for i := 0; i < v.Len(); i++ {
-		err := g.inspect(v.Index(i).Interface(), tree)
+		err := g.inspect(v.Index(i).Interface(), tree, i, reflect.StructField{})
 		if err != nil {
 			return err
 		}
@@ -255,7 +257,7 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 
 	case f.Type.Kind() == reflect.Ptr && !valField.IsNil():
 		// Handle pointer fields
-		if err := g.inspect(valField.Interface(), fieldName(f, tree)); err != nil {
+		if err := g.inspect(valField.Interface(), fieldName(f, tree), i, f); err != nil {
 			return err
 		}
 	case f.Type.Kind() == reflect.Struct:
@@ -279,7 +281,7 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 		if !v.IsValid() || v.IsNil() {
 			return nil // nil pointer is valid
 		}
-		return g.inspect(v.Elem().Interface(), tree)
+		return g.inspect(v.Elem().Interface(), tree, i, v.Type().Field(i))
 
 	}
 
