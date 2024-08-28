@@ -139,6 +139,45 @@ func TestShouldValidateList(t *testing.T) {
 
 }
 
+func TestShouldValidateIgnoreEmpty(t *testing.T) {
+	g := &Validate{}
+
+	// Test that the function returns an error if a required field is missing.
+	type testStruct1 struct {
+		Field1 *string `json:"field_1" pass-empty:"true"`
+		Field2 *string `json:"field_2"`
+	}
+	v := ""
+	val1 := []*testStruct1{
+		{
+			Field1: &v,
+		},
+	}
+	err1 := g.InspectStruct(val1)
+	assert.Nil(t, err1)
+
+}
+func TestShouldValidateIgnoreBothEmptyTypes(t *testing.T) {
+	g := &Validate{}
+
+	// Test that the function returns an error if a required field is missing.
+	type testStruct1 struct {
+		Field1 *string `json:"field_1" pass-empty:"true"`
+		Field2 *string `json:"field_2"`
+	}
+	v := ""
+	val1 := []*testStruct1{
+		{
+			Field1: &v,
+			Field2: &v,
+		},
+	}
+	err1 := g.InspectStruct(val1)
+
+	assert.Error(t, err1)
+	assert.Equal(t, "EMPTY_STRING_ERR", err1.(*Error).ErrType)
+
+}
 func TestShouldValidateListMinLen(t *testing.T) {
 	g := &Validate{}
 
