@@ -33,25 +33,27 @@ func isList(value reflect.Value) bool {
 var TimeType = reflect.TypeOf(time.Time{})
 
 func (g *Validate) InspectStruct(val interface{}) error {
-	return g.inspect(val, "", 0, reflect.StructField{})
+	enumMap := extractEnumValues(getValueOf(val), "")
+	return g.inspect(val, "", 0, reflect.StructField{}, enumMap)
 }
 
-func (g *Validate) inspect(val interface{}, tree string, i int, f reflect.StructField) error {
+func (g *Validate) inspect(val interface{}, tree string, i int, f reflect.StructField, enumMap map[string]string) error {
+
 	v := getValueOf(val)
 	if _, ok := v.Interface().(*time.Time); ok {
 		return nil
 	}
 	switch {
 	case isPtr(v):
-		return g.inspect(v.Elem().Interface(), tree, i, f)
+		return g.inspect(v.Elem().Interface(), tree, i, f, enumMap)
 	case isStruct(v):
-		return g.checkStruct(val, v, tree)
+		return g.checkStruct(val, v, tree, enumMap)
 	case isString(v):
 		return g.checkString(v, tree, i, f)
 	case isTime(v):
 		return g.checkTime(v, tree)
 	case isList(v):
-		return g.checkList(v, tree)
+		return g.checkList(v, tree, enumMap)
 	default:
 		return nil
 
@@ -188,7 +190,7 @@ func (g *Validate) checkString(v reflect.Value, tree string, _ int, f reflect.St
 	return nil
 }
 
-func (g *Validate) checkList(v reflect.Value, tree string) error {
+func (g *Validate) checkList(v reflect.Value, tree string, enumMap map[string]string) error {
 	min := 1
 	if g.IgnoreMinLen == true {
 		min = 0
@@ -203,7 +205,7 @@ func (g *Validate) checkList(v reflect.Value, tree string) error {
 		}
 	}
 	for i := 0; i < v.Len(); i++ {
-		err := g.inspect(v.Index(i).Interface(), tree, i, reflect.StructField{})
+		err := g.inspect(v.Index(i).Interface(), tree, i, reflect.StructField{}, enumMap)
 		if err != nil {
 			return err
 		}
@@ -212,7 +214,7 @@ func (g *Validate) checkList(v reflect.Value, tree string) error {
 	return nil
 }
 
-func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string) error {
+func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string, enumMao map[string]string) error {
 	t := v.Type()
 
 	for i := 0; i < t.NumField(); i++ {
@@ -221,7 +223,7 @@ func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string) er
 			continue
 		}
 
-		err := g.checkField(val, v, t, tree, i)
+		err := g.checkField(val, v, t, tree, i, enumMao)
 		if err != nil {
 			return err
 		}
@@ -230,7 +232,7 @@ func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string) er
 	return nil
 }
 
-func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, tree string, i int) error {
+func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, tree string, i int, enumMap map[string]string) error {
 
 	f := t.Field(i)
 	if f.PkgPath != "" {
@@ -257,12 +259,12 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 
 	case f.Type.Kind() == reflect.Ptr && !valField.IsNil():
 		// Handle pointer fields
-		if err := g.inspect(valField.Interface(), fieldName(f, tree), i, f); err != nil {
+		if err := g.inspect(valField.Interface(), fieldName(f, tree), i, f, enumMap); err != nil {
 			return err
 		}
 	case f.Type.Kind() == reflect.Struct:
 		// Handle non-pointer struct fields
-		if err := g.checkStruct(val, valField, fieldName(f, tree)); err != nil {
+		if err := g.checkStruct(val, valField, fieldName(f, tree), enumMap); err != nil {
 			return err
 		}
 	case f.Type.Kind() != reflect.Ptr:
@@ -281,8 +283,11 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 		if !v.IsValid() || v.IsNil() {
 			return nil // nil pointer is valid
 		}
-		return g.inspect(v.Elem().Interface(), tree, i, v.Type().Field(i))
+		return g.inspect(v.Elem().Interface(), tree, i, v.Type().Field(i), enumMap)
 
+	}
+	if err := g.validateCondition(f, valField, tree, enumMap); err != nil {
+		return err
 	}
 
 	if err := g.regexPattern(f, valField, tree); err != nil {
