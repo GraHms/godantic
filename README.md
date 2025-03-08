@@ -333,6 +333,104 @@ In this example:
 - The `ID` field represents a unique identifier for the user and is marked with the `ignore` tag.
 - Despite being ignored during validation, the `ID` field remains accessible in the `User` struct after validation, allowing you to utilize it for internal operations or data processing.
 
+Great! Now that **enum validation with conditions is working**, let's **update the README** to document this feature clearly.
+
+---
+
+
+## Conditional Validation Based on Enum Values
+
+`godantic` allows you to apply **conditional validation rules** based on the values of other fields. This is done using the `when` tag.
+
+### **1️⃣ Basic Conditional Validation**
+You can specify that a field should only be validated when another field has a specific value.
+
+#### **Example: Requiring a field when `context.type=organization`**
+```go
+type Context struct {
+    Type *string `json:"type" enum:"individual,organization"`
+}
+
+type User struct {
+    RegNo *string `json:"reg_no" when:"context.type=organization;binding=required"`
+}
+```
+
+✅ **If `context.type` is `"organization"`, `reg_no` is required.**  
+❌ **If `context.type` is `"individual"`, `reg_no` is ignored.**
+
+#### **Valid JSON Input**
+```json
+{
+  "context": { "type": "organization" },
+  "user": { "reg_no": "56789" }
+}
+```
+
+✅ **Passes validation because `reg_no` is provided for `organization`.**
+
+---
+
+### **2️⃣ Invalid Case: Missing `reg_no` When Type is `organization`**
+```json
+{
+  "context": { "type": "organization" },
+  "user": {}
+}
+```
+❌ **Fails validation with error:**
+```
+Field <user.reg_no> is required when context.type=organization
+```
+
+---
+
+### **3️⃣ Multiple Conditions**
+You can require a field **only when multiple conditions are met.**
+
+#### **Example: Requiring `vat_number` when `context.type=business` and `country=EU`**
+```go
+type Context struct {
+    Type    *string `json:"type" enum:"individual,business"`
+    Country *string `json:"country" enum:"EU,US"`
+}
+
+type Business struct {
+    VATNumber *string `json:"vat_number" when:"context.type=business;context.country=EU;binding=required"`
+}
+```
+
+✅ **If `context.type` is `"business"` and `context.country` is `"EU"`, `vat_number` is required.**  
+❌ **If `context.type` is `"individual"`, `vat_number` is ignored.**
+
+#### **Valid JSON**
+```json
+{
+  "context": { "type": "business", "country": "EU" },
+  "business": { "vat_number": "EU123456" }
+}
+```
+
+---
+
+### **4️⃣ Allowed Operators for Conditions**
+| **Operator** | **Example** | **Meaning** |
+|-------------|------------|-------------|
+| `=` | `context.type=business` | Field must be equal to value |
+
+
+---
+
+## **Why Use Conditional Validation?**
+✅ **Simplifies complex validation logic**  
+✅ **Eliminates unnecessary validation** when conditions aren’t met  
+✅ **Supports dynamic rules based on input data**
+
+---
+
+🚀 **Now you can enforce conditional validation effortlessly!** 🚀
+
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
