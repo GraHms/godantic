@@ -7,6 +7,13 @@ import (
 )
 
 // extractConditionalFields scans the struct and stores "when" conditions in a map
+func deref(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
+	}
+	return v
+}
+
 func extractEnumValues(rootVal reflect.Value, parentPath string) map[string]string {
 	enumMap := make(map[string]string)
 	queue := []struct {
@@ -18,10 +25,7 @@ func extractEnumValues(rootVal reflect.Value, parentPath string) map[string]stri
 		current := queue[0]
 		queue = queue[1:]
 
-		v := current.val
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
+		v := deref(current.val)
 		if v.Kind() != reflect.Struct {
 			continue
 		}
@@ -29,35 +33,26 @@ func extractEnumValues(rootVal reflect.Value, parentPath string) map[string]stri
 		t := v.Type()
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
-			fieldValue := v.Field(i)
+			fieldValue := deref(v.Field(i))
 
-			// Convert JSON tag to JSON path
-			jsonKey := field.Tag.Get("json")
+			// Extrair o nome da chave JSON
+			jsonKey := strings.Split(field.Tag.Get("json"), ",")[0]
 			if jsonKey == "" {
-				jsonKey = field.Name // Fallback to field name
+				jsonKey = field.Name
 			}
 
 			fullPath := jsonKey
 			if current.path != "" {
-				fullPath = current.path + "." + jsonKey // Construct full path
+				fullPath = current.path + "." + jsonKey
 			}
 
-			// Extract inputted enum value
-			if _, ok := field.Tag.Lookup("enum"); ok {
-				if fieldValue.Kind() == reflect.Ptr {
-					if fieldValue.IsNil() {
-						continue // Skip nil pointers
-					}
-					fieldValue = fieldValue.Elem()
-				}
-
-				if fieldValue.Kind() == reflect.String {
-					enumMap[fullPath] = fieldValue.String()
-				}
+			// Verificar se o campo possui a tag "enum"
+			if _, ok := field.Tag.Lookup("enum"); ok && fieldValue.Kind() == reflect.String {
+				enumMap[fullPath] = fieldValue.String()
 			}
 
-			// Add nested structs to the queue
-			if fieldValue.Kind() == reflect.Struct || (fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct) {
+			// Adicionar structs aninhadas à fila
+			if fieldValue.Kind() == reflect.Struct {
 				queue = append(queue, struct {
 					val  reflect.Value
 					path string
@@ -68,8 +63,14 @@ func extractEnumValues(rootVal reflect.Value, parentPath string) map[string]stri
 	return enumMap
 }
 
-// parseCondition extracts conditions and bindings from the "when" tag.
-// parseCondition extracts conditions and bindings from the "when" tag.
+// Exemplo de uso
+type Config struct {
+	Mode   *string `json:"mode" enum:"true"`
+	Nested struct {
+		Status string `json:"status" enum:"true"`
+	} `json:"nested"`
+}
+
 func parseCondition(conditionTag string) (map[string]string, map[string]string) {
 	conditions := make(map[string]string)
 	bindings := make(map[string]string)

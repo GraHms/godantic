@@ -333,9 +333,93 @@ In this example:
 - The `ID` field represents a unique identifier for the user and is marked with the `ignore` tag.
 - Despite being ignored during validation, the `ID` field remains accessible in the `User` struct after validation, allowing you to utilize it for internal operations or data processing.
 
-Great! Now that **enum validation with conditions is working**, let's **update the README** to document this feature clearly.
 
 ---
+
+## 📐 Numeric & Decimal Constraints
+
+`godantic` supports advanced validation for numeric and decimal fields using struct tags. These rules enable expressive, type-safe constraints on your data models.
+
+### 🔢 `min` and `max` (generic)
+
+Used to validate:
+- String length
+- Slice/array length
+- Numeric values
+
+```go
+type User struct {
+  Name  *string `json:"name" min:"3" max:"50"`       // between 3 and 50 characters
+  Tags  *[]int  `json:"tags" min:"1" max:"5"`         // between 1 and 5 items
+  Age   *int    `json:"age" min:"18" max:"60"`        // between 18 and 60 years
+}
+```
+
+---
+
+### ⚖️ `gt`, `ge`, `lt`, `le` (value bounds)
+
+Used to enforce strict or inclusive numeric constraints.
+
+| Tag  | Meaning                        |
+|------|--------------------------------|
+| `gt` | value must be **greater than** |
+| `ge` | value must be **≥**            |
+| `lt` | value must be **less than**    |
+| `le` | value must be **≤**            |
+
+```go
+type Product struct {
+  Price *float64 `json:"price" gt:"0"`     // must be greater than 0
+  Stock *int     `json:"stock" le:"1000"`  // must be ≤ 1000
+}
+```
+
+---
+
+### 🎯 `multiple_of`
+
+Ensures the value is a multiple of a specified number.
+
+```go
+type Payment struct {
+  Amount *float64 `json:"amount" multiple_of:"0.05"` // e.g. currency in increments of 0.05
+}
+```
+
+---
+
+### 🧮 `max_digits` & `decimal_places`
+
+Validates decimal precision:
+
+| Tag              | Description                                                       |
+|------------------|-------------------------------------------------------------------|
+| `max_digits`     | Max total digits (excluding leading zero, includes decimals)      |
+| `decimal_places` | Max number of digits after the decimal point                      |
+
+```go
+type Invoice struct {
+  Total *float64 `json:"total" max_digits:"6" decimal_places:"2"` // e.g. 9999.99
+}
+```
+
+---
+
+### ☢️ `allow_inf_nan`
+
+Allows `+Inf`, `-Inf`, and `NaN` values for floating point numbers.
+
+```go
+type Reading struct {
+  Value *float64 `json:"value" allow_inf_nan:"true"`
+}
+```
+
+> 🔒 By default, `inf` and `NaN` are **not allowed**.
+
+---
+
 
 
 ## Conditional Validation Based on Enum Values

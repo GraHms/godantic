@@ -289,6 +289,15 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 	if err := g.validateCondition(f, valField, tree, enumMap); err != nil {
 		return err
 	}
+	if err := g.checkMinMax(f, valField, tree); err != nil {
+		return err
+	}
+	if err := g.checkNumericConstraints(f, valField, tree); err != nil {
+		return err
+	}
+	if err := g.checkDecimalConstraints(f, valField, tree); err != nil {
+		return err
+	}
 
 	if err := g.regexPattern(f, valField, tree); err != nil {
 		return err
