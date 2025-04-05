@@ -1,0 +1,18 @@
+site_name: Godantic
+site_url: https://godantic.github.io
+repo_url: https://github.com/grahms/godantic
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.sections
+    - search.suggest
+    - content.tabs.link
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Why Godantic: why-godantic.md
+  - Plugins: plugins.md
+  - Custom Tags: custom-tags.md
+  - Dynamic Fields: dynamic-fields.md
+  - Advanced: advanced.md
