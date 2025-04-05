@@ -3,6 +3,7 @@ package godantic
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -59,14 +60,23 @@ func (g *Validate) validateWithCustomTag(val any, f reflect.StructField, path st
 		t = t.Elem()
 	}
 
-	if fn, ok := getCustomValidator(t, tag); ok {
-		err := fn(val, path)
-		if err != nil {
-			if err.Path == "" {
-				err.Path = path
+	tags := strings.Split(tag, ",")
+	for _, singleTag := range tags {
+		singleTag = strings.TrimSpace(singleTag)
+		if singleTag == "" {
+			continue
+		}
+
+		if fn, ok := getCustomValidator(t, singleTag); ok {
+			err := fn(val, path)
+			if err != nil {
+				if err.Path == "" {
+					err.Path = path
+				}
+				return err
 			}
-			return err
 		}
 	}
+
 	return nil
 }

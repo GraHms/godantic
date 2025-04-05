@@ -1,4 +1,10 @@
 # Godantic
+[![Go Report Card](https://goreportcard.com/badge/github.com/grahms/godantic)](https://goreportcard.com/report/github.com/grahms/godantic)
+[![Go Reference](https://pkg.go.dev/badge/github.com/grahms/godantic.svg)](https://pkg.go.dev/github.com/grahms/godantic)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tests](https://github.com/grahms/godantic/actions/workflows/tests.yml/badge.svg)](https://github.com/grahms/godantic/actions/workflows/tests.yml)
+[![Code Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](#) <!-- substitui com real se tiver cobertura -->
+[![Issues](https://img.shields.io/github/issues/grahms/godantic)](https://github.com/grahms/godantic/issues)
 
 Godantic is a Go package for inspecting and validating JSON-like data against Go struct types and schemas. It provides functionalities for checking type compatibility, structure compatibility, and other validations such as empty string, invalid time, minimum length list checks, regex pattern matching, and format validation.
 
@@ -513,6 +519,318 @@ type Business struct {
 ---
 
 🚀 **Now you can enforce conditional validation effortlessly!** 🚀
+
+
+## ✅ Custom Validation Tags (`validate`)
+
+Godantic allows you to register custom validation functions tied to specific tag names. These functions give you full control over domain-specific validations, and they integrate seamlessly into your validation flow.
+
+### 🔧 Registering a Custom Validator
+
+Use `RegisterCustom` to attach your custom validation logic to a tag:
+
+```go
+godantic.RegisterCustom[string]("starts_with_A", func(val string, path string) *godantic.Error {
+	if !strings.HasPrefix(val, "A") {
+		return &godantic.Error{
+			ErrType: "STARTS_WITH_A_ERR",
+			Path:    path,
+			Message: fmt.Sprintf("The field <%s> must start with 'A'", path),
+		}
+	}
+	return nil
+})
+```
+
+> ✅ The generic type `[string]` indicates the expected value type for the validation. The function receives the field value and the full path of the field in the struct.
+
+---
+
+### 📌 Applying the Validator to a Struct Field
+
+```go
+type User struct {
+	Username *string `json:"username" validate:"starts_with_A"`
+}
+```
+
+When you call `Validate.InspectStruct(&User{})` or `Validate.BindJSON`, the custom validator will automatically be invoked.
+
+---
+
+### 🧩 Using Multiple Custom Tags
+
+You can apply multiple custom validations on the same field by separating them with commas:
+
+```go
+type Product struct {
+	Code *string `json:"code" validate:"starts_with_A,min_len_3"`
+}
+```
+
+All validators (`starts_with_A` and `min_len_3`) will be executed in order. If any of them return an error, validation will fail.
+
+---
+
+### 🧠 Validators by Type
+
+Godantic supports type-safe validation using Go generics. For example, to validate integers:
+
+```go
+godantic.RegisterCustom[int]("positive", func(val int, path string) *godantic.Error {
+	if val <= 0 {
+		return &godantic.Error{
+			ErrType: "POSITIVE_ERR",
+			Path:    path,
+			Message: fmt.Sprintf("The field <%s> must be a positive number", path),
+		}
+	}
+	return nil
+})
+```
+
+```go
+type Invoice struct {
+	Amount *int `json:"amount" validate:"positive"`
+}
+```
+
+---
+
+### 🛡️ Safety and Design
+
+- You don't need to manually add the `Path` inside the error — Godantic will do it for you if it’s missing.
+- If the field type doesn't match the registered validator's type, the validator is skipped without causing panic.
+
+---
+
+### ✅ Best Practices
+
+- Use descriptive tag names: `min_len_5`, `email_domain_gov`, `alphanumeric_only`, etc.
+- Register all custom validators once during app initialization (`init()` or startup function).
+- Combine with built-in tags like `binding:"required"`, `format:"email"`, `when:"..."`, and `enum:"..."` for expressive rules.
+
+---
+## 🔌 Plugin-Based Validation 
+
+Godantic supports a powerful **interface-based validation mechanism** that allows you to embed custom logic inside your struct types using the `ValidationPlugin` interface.
+
+### ✨ What is a Plugin?
+
+A Plugin is any struct that implements the following interface:
+
+```go
+type ValidationPlugin interface {
+	Validate() *godantic.Error
+}
+```
+
+Godantic will **automatically detect** structs that implement this interface and **invoke the `Validate()` method** during the validation cycle — whether the struct is a root object, nested field, or an item in a list.
+
+---
+
+### 🧪 Example: Basic Plugin
+
+```go
+type Password struct {
+	Value *string `json:"value"`
+}
+
+func (p Password) Validate() *godantic.Error {
+	if p.Value == nil || len(*p.Value) < 8 {
+		return &godantic.Error{
+			ErrType: "WEAK_PASSWORD",
+			Message: "Password must be at least 8 characters long",
+		}
+	}
+	return nil
+}
+```
+
+Then use it in your main struct:
+
+```go
+type User struct {
+	Username *string  `json:"username" binding:"required"`
+	Password *Password `json:"password"` // Plugin validation will be triggered
+}
+```
+
+Godantic will automatically call `Password.Validate()` when you validate the `User` struct.
+
+---
+
+### 📦 Nested Plugin Support
+
+Godantic supports plugins **recursively**, meaning:
+
+- Nested objects
+- Elements within slices
+- Pointers or non-pointers
+
+All are handled correctly.
+
+#### Example:
+
+```go
+type Role struct {
+	Name string `json:"name"`
+}
+
+func (r Role) Validate() *godantic.Error {
+	if r.Name != "admin" && r.Name != "user" {
+		return &godantic.Error{
+			ErrType: "INVALID_ROLE",
+			Message: fmt.Sprintf("Role <%s> is not allowed", r.Name),
+		}
+	}
+	return nil
+}
+
+type User struct {
+	Roles []Role `json:"roles"` // Each Role will be validated using its Validate method
+}
+```
+
+---
+
+### 🧠 Why Use Plugins?
+
+- When logic is too complex for struct tags
+- When validation depends on multiple fields
+- When you want reusable, encapsulated validation units
+- When you want full control over the error being returned
+
+---
+
+### 💡 Good to Know
+
+- Plugin logic runs **after tag validations** (e.g., `binding`, `format`, `regex`).
+- If the plugin returns an error **without a path**, Godantic won’t add one. You should provide the `Path` in the error when relevant.
+- Plugin validation is supported for both **pointer** and **non-pointer** struct types.
+
+---
+
+
+## 🔄 Dynamic Field Validation
+
+In many applications, some fields are **not strictly typed at compile time** — especially when you're building form-like schemas, dynamic inputs, or polymorphic models.
+
+Godantic solves this elegantly using the `DynamicFieldsValidator` interface.
+
+---
+
+### ✨ What is a Dynamic Field?
+
+A dynamic field is one whose **value, name, and type** are **determined at runtime**, and needs to be validated **accordingly**.
+
+To support this, implement the following interface:
+
+```go
+type DynamicFieldsValidator interface {
+	GetValue() any          // The actual value
+	GetValueType() string   // Expected type: "string", "float", "boolean", "integer"
+	GetAttribute() string   // The name/path for error reporting
+}
+```
+
+Godantic will automatically invoke your implementation and validate the dynamic value.
+
+---
+
+### ✅ Supported Value Types
+
+| `GetValueType()` | Validated As...       |
+|------------------|------------------------|
+| `"string"`       | Must be a Go `string` |
+| `"float"`        | Must be a `float64`   |
+| `"boolean"`      | Must be a `bool`      |
+| `"integer"`      | Must be an `int` or castable `float64` |
+| `"numeric"`      | Alias for `"integer"` |
+
+---
+
+### 🧪 Example: Simple Dynamic Field
+
+```go
+type MyDynamicField struct {
+	Value     interface{} `json:"value"`
+	ValueType string      `json:"valueType" enums:"string,integer,boolean"`
+	Attribute string      `json:"attribute"`
+}
+
+func (mdf MyDynamicField) GetValue() any        { return mdf.Value }
+func (mdf MyDynamicField) GetValueType() string { return mdf.ValueType }
+func (mdf MyDynamicField) GetAttribute() string { return mdf.Attribute }
+```
+
+```go
+type Request struct {
+	Field MyDynamicField `json:"field"`
+}
+```
+
+```json
+{
+  "field": {
+    "value": 42,
+    "valueType": "integer",
+    "attribute": "age"
+  }
+}
+```
+
+Godantic will automatically validate the field value based on the declared type (`"integer"` in this case).
+
+---
+
+### 🧪 Example: With Array of Dynamic Fields
+
+```go
+type Request struct {
+	Fields []MyDynamicField `json:"fields"`
+}
+```
+
+Each element in the list will be validated using its dynamic type at runtime.
+
+---
+
+### ❌ Example: Invalid Type
+
+```json
+{
+  "field": {
+    "value": "not a number",
+    "valueType": "integer",
+    "attribute": "age"
+  }
+}
+```
+
+✅ Error:
+```
+Invalid value type for field 'age'. Expected numeric value.
+```
+
+---
+
+### 💡 Why Use Dynamic Fields?
+
+- You're building a **form builder**, **rule engine**, or **API that accepts generic inputs**.
+- You want validation **without knowing types at compile time**.
+- You need to enforce types dynamically **based on metadata**.
+
+---
+
+### 💬 Notes
+
+- Works for both **pointer** and **non-pointer** values.
+- Integrates seamlessly into nested objects and lists.
+- Errors are detailed and reference the provided `attribute` for clarity.
+
+---
+
 
 
 ## Contributing
