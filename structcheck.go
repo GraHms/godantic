@@ -205,9 +205,25 @@ func (g *Validate) checkList(v reflect.Value, tree string, enumMap map[string]st
 		}
 	}
 	for i := 0; i < v.Len(); i++ {
-		err := g.inspect(v.Index(i).Interface(), tree, i, reflect.StructField{}, enumMap)
+		elem := v.Index(i)
+		err := g.inspect(elem.Interface(), tree, i, reflect.StructField{}, enumMap)
 		if err != nil {
 			return err
+		}
+		if cv, ok := resolveInterface[ValidationPlugin](elem); ok {
+			if err := cv.Validate(); err != nil {
+				return &Error{
+					ErrType: err.ErrType,
+					Message: err.Message,
+					Path:    err.Path,
+					err:     err,
+				}
+			}
+		}
+		if df, ok := resolveInterface[DynamicFieldsValidator](elem); ok {
+			if err := validateDynamicFields(df.GetValue(), df.GetAttribute(), df.GetValueType(), tree); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -305,6 +321,9 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 	if err := g.formatValidation(f, valField, tree); err != nil {
 		return err
 	}
+	if err := g.validateWithCustomTag(valField.Interface(), f, fieldName(f, tree)); err != nil {
+		return err
+	}
 
 	// Check for enum validation tags.
 	if len(enums) > 0 {
@@ -315,8 +334,8 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 			return err
 		}
 	}
-	if customValidator, ok := val.(ValidationPlugin); ok {
-		if err := customValidator.Validate(); err != nil {
+	if cv, ok := resolveInterface[ValidationPlugin](valField); ok {
+		if err := cv.Validate(); err != nil {
 			return &Error{
 				ErrType: err.ErrType,
 				Message: err.Message,
@@ -325,8 +344,9 @@ func (g *Validate) checkField(val interface{}, v reflect.Value, t reflect.Type, 
 			}
 		}
 	}
-	if df, ok := val.(DynamicFieldsValidator); ok {
-		if err := validateDynamicFields(df.GetValue(), df.GetAttribute(), df.GetValueType(), tree); err != nil {
+
+	if df, ok := resolveInterface[DynamicFieldsValidator](valField); ok {
+		if err := validateDynamicFields(df.GetValue(), df.GetAttribute(), df.GetValueType(), fieldName(f, tree)); err != nil {
 			return err
 		}
 	}

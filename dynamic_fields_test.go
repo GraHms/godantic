@@ -122,3 +122,68 @@ func TestDynamicField(t *testing.T) {
 		assert.Contains(t, e.Message, "Expected boolean value")
 	})
 }
+
+type Address struct {
+	Street string `json:"street" binding:"required" min:"3"`
+	City   string `json:"city" binding:"required"`
+	Zip    string `json:"zip" format:"postal_code"`
+}
+
+type Metadata struct {
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value" binding:"required"`
+}
+
+type ComplexUser struct {
+	Name      string         `json:"name" binding:"required" min:"2"`
+	Email     string         `json:"email" format:"email"`
+	Age       int            `json:"age" min:"18" max:"99"`
+	Role      string         `json:"role" enum:"admin,user,guest"`
+	Active    bool           `json:"active"`
+	Reason    *string        `json:"reason" when:"active=false;binding=required"`
+	Tags      []string       `json:"tags" min:"1"`
+	Addresses []Address      `json:"addresses" binding:"required"`
+	Metadata  []Metadata     `json:"metadata"`
+	Dynamic   MyDynamicField `json:"dynamic"`
+}
+
+type NestedDynamic struct {
+	Dynamic MyDynamicField `json:"dynamic"`
+}
+
+func TestComplexValidation(t *testing.T) {
+	g := &Validate{}
+
+	t.Run("should not pass with non boolean attribute", func(t *testing.T) {
+
+		validUser := NestedDynamic{
+			Dynamic: MyDynamicField{
+				Value:     "sup",
+				ValueType: "boolean",
+				Attribute: "is_confirmed",
+			},
+		}
+		err := g.InspectStruct(validUser)
+		assert.Error(t, err)
+	})
+
+	t.Run("should fail if dynamic field is wrong type", func(t *testing.T) {
+		invalidUser := ComplexUser{
+			Name:  "Jo",
+			Email: "john@invalid", // invalid email
+			Age:   17,             // too young
+			Role:  "superadmin",   // invalid enum
+			Tags:  []string{},
+			Addresses: []Address{
+				{Street: "St", City: "", Zip: "ABC123"}, // too short and missing city
+			},
+			Dynamic: MyDynamicField{
+				Value:     "not-a-bool",
+				ValueType: "boolean",
+				Attribute: "is_confirmed",
+			},
+		}
+		err := g.InspectStruct(invalidUser)
+		assert.NotNil(t, err)
+	})
+}
