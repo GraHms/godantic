@@ -40,6 +40,7 @@ func (g *Validate) InspectStruct(val interface{}) error {
 func (g *Validate) inspect(val interface{}, tree string, i int, f reflect.StructField, enumMap map[string]string) error {
 
 	v := getValueOf(val)
+
 	if _, ok := v.Interface().(*time.Time); ok {
 		return nil
 	}
@@ -232,6 +233,9 @@ func (g *Validate) checkList(v reflect.Value, tree string, enumMap map[string]st
 
 func (g *Validate) checkStruct(val interface{}, v reflect.Value, tree string, enumMao map[string]string) error {
 	t := v.Type()
+	if err := g.validateInterfaceHooks(val, tree); err != nil {
+		return err
+	}
 
 	for i := 0; i < t.NumField(); i++ {
 		if isTime(v.Field(i)) {
