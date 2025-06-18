@@ -64,6 +64,12 @@ func (g *Validate) validateObject(fieldType any, reqData map[string]any, reqFiel
 
 func (g *Validate) validateField(refType, reqValue any, path string) error {
 	switch refTypeAsserted := refType.(type) {
+	case Object:
+		if _, ok := reqValue.(map[string]any); !ok {
+			return fmt.Errorf("expected object for path %s", path)
+		}
+		// Skip nested validation for Object types
+		return nil
 	case map[string]any:
 		reqMap, ok := reqValue.(map[string]any)
 		if !ok {

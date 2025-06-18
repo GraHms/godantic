@@ -67,6 +67,22 @@ if err != nil {
     fmt.Println(err) // This will print an error about the 'extra' field not being valid.
 }
 ```
+To allow unknown keys for a specific field, declare that field in the reference
+map as `godantic.Object`:
+
+```go
+ref := map[string]any{
+    "name": "",
+    "meta": godantic.Object{},
+}
+
+req := map[string]any{
+    "name": "John",
+    "meta": map[string]any{"foo": 1, "bar": "baz"},
+}
+
+_ = validator.CheckTypeCompatibility(req, ref)
+```
 
 - Custom Error Handling
 

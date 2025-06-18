@@ -5,6 +5,41 @@ import (
 	"testing"
 )
 
+func TestObjectBypassesExtraFieldValidation(t *testing.T) {
+	g := &Validate{}
+
+	requestData := map[string]any{
+		"id":   1,
+		"meta": map[string]any{"foo": "bar", "x": 1},
+	}
+
+	referenceData := map[string]any{
+		"id":   0,
+		"meta": Object{},
+	}
+
+	err := g.CheckTypeCompatibility(requestData, referenceData)
+	assert.Nil(t, err)
+}
+
+func TestObjectDoesNotDisableGlobalExtraChecks(t *testing.T) {
+	g := &Validate{}
+
+	requestData := map[string]any{
+		"id":    1,
+		"extra": true,
+		"meta":  map[string]any{"foo": "bar"},
+	}
+
+	referenceData := map[string]any{
+		"id":   0,
+		"meta": Object{},
+	}
+
+	err := g.CheckTypeCompatibility(requestData, referenceData)
+	assert.EqualError(t, err, "Invalid field <extra>")
+}
+
 // TestForbidExtraFields tests the CheckTypeCompatibility function.
 func TestForbidExtraFields(t *testing.T) {
 	// Create a Validate instance.
