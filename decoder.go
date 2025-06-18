@@ -78,7 +78,7 @@ func (g *Validate) BindJSON(jsonData []byte, obj any) error {
 		return err
 	}
 
-	err = g.CheckTypeCompatibility(reqDataMap, refDataMap)
+	err = g.CheckTypeCompatibility(buildRefData(obj), refDataMap)
 	if err != nil {
 		return err
 	}

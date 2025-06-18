@@ -58,3 +58,13 @@ func jsonEqual(a, b interface{}) bool {
 	jsonB, _ := json.Marshal(b)
 	return string(jsonA) == string(jsonB)
 }
+
+type objectPayload struct {
+	ID int `json:"ID"`
+
+	//State Object `json:"state"`
+
+	Screens []struct {
+		State Object `json:"state"`
+	}
+}

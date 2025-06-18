@@ -6,8 +6,9 @@ import (
 )
 
 type Validate struct {
-	IgnoreRequired bool
-	IgnoreMinLen   bool
+	IgnoreRequired     bool
+	IgnoreMinLen       bool
+	AllowUnknownFields bool
 }
 
 func (g *Validate) CheckTypeCompatibility(reqData, refData map[string]any) error {
@@ -33,6 +34,9 @@ func (g *Validate) typeCheck(reqData, refData map[string]any, currentPath string
 }
 
 func (g *Validate) validateExtra(refData map[string]any, reqField, currentPath string) error {
+	if g.AllowUnknownFields || len(refData) == 0 {
+		return nil
+	}
 	_, isValidField := refData[reqField]
 	if !isValidField {
 		path := reqField

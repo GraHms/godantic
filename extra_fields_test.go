@@ -212,3 +212,23 @@ func TestShouldCheckTypeCompatibility(t *testing.T) {
 		}
 	})
 }
+
+func TestAllowExtraFields(t *testing.T) {
+	v := &Validate{AllowUnknownFields: true}
+	reqData := map[string]interface{}{"key": "value", "extra": "val"}
+	refData := map[string]interface{}{"key": ""}
+	err := v.CheckTypeCompatibility(reqData, refData)
+	assert.Nil(t, err)
+}
+
+func TestAllowExtraFieldsInMap(t *testing.T) {
+	v := &Validate{AllowUnknownFields: true}
+	reqData := map[string]interface{}{
+		"data": map[string]interface{}{"foo": 1, "bar": 2},
+	}
+	refData := map[string]interface{}{
+		"data": map[string]interface{}{},
+	}
+	err := v.CheckTypeCompatibility(reqData, refData)
+	assert.Nil(t, err)
+}
