@@ -6,6 +6,20 @@
 [![Code Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](#) <!-- substitui com real se tiver cobertura -->
 [![Issues](https://img.shields.io/github/issues/grahms/godantic)](https://github.com/grahms/godantic/issues)
 
+> [!IMPORTANT]
+> ## This repository has moved
+>
+> Godantic is now maintained by Vodacom Mozambique at
+> **https://github.com/VodacomMZ/godantic**
+>
+> This repository is **archived and read only**. It remains online so that
+> existing clones, tags and links keep resolving. It will receive no further
+> commits, releases, issues or pull requests. The last version published here
+> is `v1.5.3`.
+>
+> Please open issues and pull requests on the new repository.
+> 
+
 Godantic is a Go package for inspecting and validating JSON-like data against Go struct types and schemas. It provides functionalities for checking type compatibility, structure compatibility, and other validations such as empty string, invalid time, minimum length list checks, regex pattern matching, and format validation.
 
 ## Getting Started
